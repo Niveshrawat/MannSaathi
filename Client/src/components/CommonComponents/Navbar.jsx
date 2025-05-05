@@ -26,6 +26,7 @@ import {
   Book,
   MenuBook,
 } from '@mui/icons-material';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { useNavigate } from 'react-router-dom';
 
 const Navbar = () => {
@@ -273,6 +274,15 @@ const Navbar = () => {
                       <Settings fontSize="small" />
                     </ListItemIcon>
                     Settings
+                  </MenuItem>,
+                  <MenuItem key="my-resources" onClick={() => {
+                    handleCloseUserMenu();
+                    navigate('/resources/my-resources');
+                  }}>
+                    <ListItemIcon>
+                      <MenuBookIcon fontSize="small" />
+                    </ListItemIcon>
+                    <Typography textAlign="center">My Resources</Typography>
                   </MenuItem>
                 ] : [
                   <MenuItem key="dashboard" onClick={() => handleMenuClick('/dashboard')}>

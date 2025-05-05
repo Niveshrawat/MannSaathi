@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Paper,
@@ -15,6 +15,7 @@ import {
   MenuItem,
   Alert,
   Snackbar,
+  CircularProgress,
 } from '@mui/material';
 import {
   Notifications,
@@ -23,8 +24,14 @@ import {
   Schedule,
   Language,
 } from '@mui/icons-material';
+import { getCounselorProfile, updateCounselorAvailability } from '../services/api';
 
 const CounselorSettings = () => {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [profile, setProfile] = useState(null);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
   const [settings, setSettings] = useState({
     notifications: {
       email: true,
@@ -55,6 +62,36 @@ const CounselorSettings = () => {
     severity: 'success',
   });
 
+  const [availability, setAvailability] = useState({
+    monday: { morning: false, afternoon: false, evening: false },
+    tuesday: { morning: false, afternoon: false, evening: false },
+    wednesday: { morning: false, afternoon: false, evening: false },
+    thursday: { morning: false, afternoon: false, evening: false },
+    friday: { morning: false, afternoon: false, evening: false },
+    saturday: { morning: false, afternoon: false, evening: false },
+    sunday: { morning: false, afternoon: false, evening: false }
+  });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        const response = await getCounselorProfile();
+        setProfile(response.counselor);
+        if (response.counselor.availability) {
+          setAvailability(response.counselor.availability);
+        }
+        setError(null);
+      } catch (err) {
+        setError(err.message || 'Failed to load profile');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
   const handleNotificationChange = (setting) => {
     setSettings((prev) => ({
       ...prev,
@@ -75,18 +112,42 @@ const CounselorSettings = () => {
     }));
   };
 
-  const handleSave = () => {
-    // TODO: Implement API call to save settings
-    setSnackbar({
-      open: true,
-      message: 'Settings saved successfully!',
-      severity: 'success',
-    });
+  const handleAvailabilityChange = (day, timeSlot) => {
+    setAvailability(prev => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        [timeSlot]: !prev[day][timeSlot]
+      }
+    }));
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccess(false);
+      
+      await updateCounselorAvailability(availability);
+      setSuccess(true);
+    } catch (err) {
+      setError(err.message || 'Failed to update availability');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCloseSnackbar = () => {
     setSnackbar((prev) => ({ ...prev, open: false }));
   };
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -265,10 +326,22 @@ const CounselorSettings = () => {
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
           <Button variant="contained" onClick={handleSave}>
-            Save Changes
+            {saving ? 'Saving...' : 'Save Changes'}
           </Button>
         </Box>
       </Paper>
+
+      {error && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {success && (
+        <Alert severity="success" sx={{ mt: 2 }}>
+          Availability updated successfully!
+        </Alert>
+      )}
 
       <Snackbar
         open={snackbar.open}

@@ -9,7 +9,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Grid,
 } from '@mui/material';
 
 const BookingForm = ({ onComplete }) => {
@@ -45,9 +44,9 @@ const BookingForm = ({ onComplete }) => {
         Please provide some information to help us match you with the right counselor.
       </Typography>
 
-      <form onSubmit={handleSubmit}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} sm={6}>
+      <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, width: '100%' }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ flex: '1 1 300px', minWidth: 250 }}>
             <FormControl fullWidth>
               <InputLabel>Preferred Language</InputLabel>
               <Select
@@ -62,9 +61,8 @@ const BookingForm = ({ onComplete }) => {
                 <MenuItem value="hindi">Hindi</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
-
-          <Grid item xs={12} sm={6}>
+          </Box>
+          <Box sx={{ flex: '1 1 300px', minWidth: 250 }}>
             <FormControl fullWidth>
               <InputLabel>Current Mood</InputLabel>
               <Select
@@ -80,9 +78,8 @@ const BookingForm = ({ onComplete }) => {
                 <MenuItem value="happy">Happy</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
-
-          <Grid item xs={12} sm={6}>
+          </Box>
+          <Box sx={{ flex: '1 1 300px', minWidth: 250 }}>
             <FormControl fullWidth>
               <InputLabel>Preferred Counselor Gender</InputLabel>
               <Select
@@ -97,9 +94,8 @@ const BookingForm = ({ onComplete }) => {
                 <MenuItem value="other">Other</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
-
-          <Grid item xs={12} sm={6}>
+          </Box>
+          <Box sx={{ flex: '1 1 300px', minWidth: 250 }}>
             <FormControl fullWidth>
               <InputLabel>Preferred Time</InputLabel>
               <Select
@@ -113,9 +109,8 @@ const BookingForm = ({ onComplete }) => {
                 <MenuItem value="evening">Evening (5PM - 9PM)</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
-
-          <Grid item xs={12}>
+          </Box>
+          <Box sx={{ flex: '1 1 100%', minWidth: 250 }}>
             <TextField
               fullWidth
               multiline
@@ -126,9 +121,8 @@ const BookingForm = ({ onComplete }) => {
               onChange={handleChange}
               required
             />
-          </Grid>
-
-          <Grid item xs={12}>
+          </Box>
+          <Box sx={{ flex: '1 1 100%', minWidth: 250 }}>
             <Button
               type="submit"
               variant="contained"
@@ -138,9 +132,9 @@ const BookingForm = ({ onComplete }) => {
             >
               Find Matching Counselors
             </Button>
-          </Grid>
-        </Grid>
-      </form>
+          </Box>
+        </Box>
+      </Box>
     </Paper>
   );
 };

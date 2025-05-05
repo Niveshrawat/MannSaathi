@@ -6,7 +6,6 @@ import {
     Typography,
     TextField,
     Button,
-    Grid,
     Link,
     FormControl,
     InputLabel,
@@ -146,8 +145,8 @@ const Register = () => {
                         </Alert>
                     )}
                     <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, width: '100%' }}>
-                        <Grid container spacing={2}>
-                            <Grid item xs={12}>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                            <Box sx={{ flex: '1 1 100%', minWidth: 250 }}>
                                 <TextField
                                     required
                                     fullWidth
@@ -157,8 +156,8 @@ const Register = () => {
                                     onChange={handleChange}
                                     disabled={loading}
                                 />
-                            </Grid>
-                            <Grid item xs={12}>
+                            </Box>
+                            <Box sx={{ flex: '1 1 100%', minWidth: 250 }}>
                                 <TextField
                                     required
                                     fullWidth
@@ -169,8 +168,8 @@ const Register = () => {
                                     onChange={handleChange}
                                     disabled={loading}
                                 />
-                            </Grid>
-                            <Grid item xs={12}>
+                            </Box>
+                            <Box sx={{ flex: '1 1 100%', minWidth: 250 }}>
                                 <TextField
                                     required
                                     fullWidth
@@ -182,8 +181,8 @@ const Register = () => {
                                     disabled={loading}
                                     helperText="Password must be at least 6 characters long"
                                 />
-                            </Grid>
-                            <Grid item xs={12}>
+                            </Box>
+                            <Box sx={{ flex: '1 1 100%', minWidth: 250 }}>
                                 <TextField
                                     required
                                     fullWidth
@@ -194,8 +193,8 @@ const Register = () => {
                                     onChange={handleChange}
                                     disabled={loading}
                                 />
-                            </Grid>
-                            <Grid item xs={12}>
+                            </Box>
+                            <Box sx={{ flex: '1 1 100%', minWidth: 250 }}>
                                 <FormControl fullWidth>
                                     <InputLabel>Role</InputLabel>
                                     <Select
@@ -209,10 +208,10 @@ const Register = () => {
                                         <MenuItem value="counselor">Counselor</MenuItem>
                                     </Select>
                                 </FormControl>
-                            </Grid>
+                            </Box>
                             {formData.role === 'counselor' && (
                                 <>
-                                    <Grid item xs={12}>
+                                    <Box sx={{ flex: '1 1 100%', minWidth: 250 }}>
                                         <TextField
                                             required
                                             fullWidth
@@ -222,8 +221,8 @@ const Register = () => {
                                             onChange={handleChange}
                                             disabled={loading}
                                         />
-                                    </Grid>
-                                    <Grid item xs={12}>
+                                    </Box>
+                                    <Box sx={{ flex: '1 1 100%', minWidth: 250 }}>
                                         <TextField
                                             required
                                             fullWidth
@@ -234,26 +233,27 @@ const Register = () => {
                                             onChange={handleChange}
                                             disabled={loading}
                                         />
-                                    </Grid>
+                                    </Box>
                                 </>
                             )}
-                        </Grid>
-                        <Button
-                            type="submit"
-                            fullWidth
-                            variant="contained"
-                            sx={{ mt: 3, mb: 2 }}
-                            disabled={loading}
-                        >
-                            {loading ? <CircularProgress size={24} /> : 'Register'}
-                        </Button>
-                        <Grid container justifyContent="flex-end">
-                            <Grid item>
+                            <Box sx={{ flex: '1 1 100%', minWidth: 250 }}>
+                                <Button
+                                    type="submit"
+                                    fullWidth
+                                    variant="contained"
+                                    color="primary"
+                                    disabled={loading}
+                                    size="large"
+                                >
+                                    {loading ? <CircularProgress size={24} /> : 'Register'}
+                                </Button>
+                            </Box>
+                            <Box sx={{ flex: '1 1 100%', minWidth: 250, display: 'flex', justifyContent: 'flex-end' }}>
                                 <Link href="/login" variant="body2">
                                     Already have an account? Sign in
                                 </Link>
-                            </Grid>
-                        </Grid>
+                            </Box>
+                        </Box>
                     </Box>
                 </Paper>
             </Box>

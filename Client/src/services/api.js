@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create an axios instance with default config
 const api = axios.create({
-    baseURL: 'https://mannsaathi.onrender.com/api',
+    baseURL: 'http://localhost:5000/api',
     headers: {
         'Content-Type': 'application/json'
     }
@@ -113,11 +113,11 @@ export const userAPI = {
 
 // Counselor API
 export const counselorAPI = {
-    getProfile: () => api.get('/counselors/profile'),
-    updateProfile: (data) => api.put('/counselors/profile', data),
-    getAppointments: () => api.get('/counselors/appointments'),
-    updateAvailability: (data) => api.put('/counselors/availability', data),
-    getClients: () => api.get('/counselors/clients')
+    getProfile: () => api.get('/counselor/profile'),
+    updateProfile: (data) => api.put('/counselor/profile', data),
+    getAppointments: () => api.get('/counselor/appointments'),
+    updateAvailability: (data) => api.put('/counselor/availability', data),
+    getClients: () => api.get('/counselor/clients')
 };
 
 // Session API
@@ -126,6 +126,71 @@ export const sessionAPI = {
     endSession: (id) => api.post(`/sessions/${id}/end`),
     getSessionDetails: (id) => api.get(`/sessions/${id}`),
     sendMessage: (id, message) => api.post(`/sessions/${id}/messages`, { message })
+};
+
+// Counselor API functions
+export const getCounselorProfile = async () => {
+    try {
+        const response = await api.get('/counselor/profile');
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Failed to get counselor profile' };
+    }
+};
+
+export const updateCounselorProfile = async (profileData) => {
+    try {
+        const response = await api.put('/counselor/profile', profileData);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Failed to update counselor profile' };
+    }
+};
+
+export const getCounselorAppointments = async () => {
+    try {
+        const response = await api.get('/counselor/appointments');
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Failed to get counselor appointments' };
+    }
+};
+
+export const updateCounselorAvailability = async (availability) => {
+    try {
+        const response = await api.put('/counselor/availability', { availability });
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Failed to update counselor availability' };
+    }
+};
+
+export const getCounselorClients = async () => {
+    try {
+        const response = await api.get('/counselor/clients');
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Failed to get counselor clients' };
+    }
+};
+
+export const getCounselorResources = async () => {
+    try {
+        const response = await api.get('/resources/my-resources');
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Failed to get counselor resources' };
+    }
+};
+
+// Resource API functions
+export const resourceAPI = {
+    getResources: () => api.get('/resources'),
+    getResource: (id) => api.get(`/resources/${id}`),
+    createResource: (data) => api.post('/resources', data),
+    updateResource: (id, data) => api.put(`/resources/${id}`, data),
+    deleteResource: (id) => api.delete(`/resources/${id}`),
+    getMyResources: () => api.get('/resources/my-resources')
 };
 
 export default api; 

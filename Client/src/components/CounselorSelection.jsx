@@ -77,9 +77,17 @@ const CounselorSelection = ({ onBookingComplete }) => {
         Select a counselor based on your preferences and requirements.
       </Typography>
 
-      <Grid container spacing={3}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: { xs: 'center', md: 'flex-start' } }}>
         {mockCounselors.map((counselor) => (
-          <Grid item xs={12} md={4} key={counselor.id}>
+          <Box
+            key={counselor.id}
+            sx={{
+              flex: '1 1 320px',
+              maxWidth: 400,
+              minWidth: 280,
+              display: 'flex',
+            }}
+          >
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -128,9 +136,9 @@ const CounselorSelection = ({ onBookingComplete }) => {
                 </Button>
               </CardActions>
             </Card>
-          </Grid>
+          </Box>
         ))}
-      </Grid>
+      </Box>
 
       <Dialog open={showPaymentDialog} onClose={() => setShowPaymentDialog(false)}>
         <DialogTitle>Complete Your Booking</DialogTitle>

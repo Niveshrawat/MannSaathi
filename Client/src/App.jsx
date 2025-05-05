@@ -20,7 +20,9 @@ import SettingsPage from './pages/Settings/SettingsPage';
 import CounselorDashboard from './pages/CounselorDashboard';
 import CounselorProfile from './pages/CounselorProfile';
 import CounselorSettings from './pages/CounselorSettings';
+import ResourceEditor from './pages/ResourceEditor';
 import { authAPI } from './services/api';
+import MyResources from './components/ResourceComponents/MyResources';
 
 const theme = createTheme({
   palette: {
@@ -58,6 +60,21 @@ const App = () => {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/resources" element={<Resources />} />
+            <Route path="/resources/my-resources" element={
+              <ProtectedRoute>
+                <MyResources />
+              </ProtectedRoute>
+            } />
+            <Route path="/resources/create" element={
+              <ProtectedRoute>
+                <ResourceEditor />
+              </ProtectedRoute>
+            } />
+            <Route path="/resources/edit/:id" element={
+              <ProtectedRoute>
+                <ResourceEditor />
+              </ProtectedRoute>
+            } />
             <Route path="/journal" element={<Journal />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/book-session" element={<BookSession />} />
@@ -99,6 +116,22 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <CounselorSettings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/resources/editor"
+              element={
+                <ProtectedRoute roles={['counselor']}>
+                  <ResourceEditor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/resources/editor/:id"
+              element={
+                <ProtectedRoute roles={['counselor']}>
+                  <ResourceEditor />
                 </ProtectedRoute>
               }
             />
