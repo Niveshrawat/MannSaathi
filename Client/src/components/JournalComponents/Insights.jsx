@@ -16,15 +16,22 @@ import {
 } from 'recharts';
 
 const moodToValue = {
-  Happy: 5,
-  Excited: 4,
-  Calm: 3,
-  Neutral: 2,
-  Anxious: 1,
-  Sad: 0,
-  Angry: -1
+  happy: 5,
+  calm: 4,
+  neutral: 3,
+  anxious: 2,
+  sad: 1,
+  angry: 0
 };
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF7AC5', '#8884D8'];
+
+const moodColors = {
+  happy: '#4CAF50',
+  calm: '#2196F3',
+  neutral: '#9E9E9E',
+  anxious: '#FF9800',
+  sad: '#F44336',
+  angry: '#D32F2F'
+};
 
 const Insights = ({ entries }) => {
   const theme = useTheme();
@@ -35,10 +42,22 @@ const Insights = ({ entries }) => {
     acc[e.mood] = (acc[e.mood] || 0) + 1;
     return acc;
   }, {});
-  const pieData = Object.entries(freq).map(([name, value]) => ({ name, value }));
+  const pieData = Object.entries(freq).map(([name, value]) => ({ 
+    name: name.charAt(0).toUpperCase() + name.slice(1), 
+    value 
+  }));
 
   // Trend
-  const trendData = [...entries].reverse().map(e => ({ date: e.date, moodValue: moodToValue[e.mood] ?? 2 }));
+  const trendData = [...entries]
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    .map(e => ({ 
+      date: new Date(e.createdAt).toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric' 
+      }), 
+      moodValue: moodToValue[e.mood] ?? 3,
+      mood: e.mood
+    }));
 
   // Avg word count
   const avgWords = entries.length
@@ -76,8 +95,8 @@ const Insights = ({ entries }) => {
                 outerRadius={isSm ? 80 : 100}
                 label
               >
-                {pieData.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                {pieData.map((entry) => (
+                  <Cell key={entry.name} fill={moodColors[entry.name.toLowerCase()]} />
                 ))}
               </Pie>
               <Tooltip />
@@ -92,10 +111,32 @@ const Insights = ({ entries }) => {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fontSize: isSm ? 10 : 12 }} />
-              <YAxis domain={[-1, 5]} />
-              <Tooltip />
-              <Line type="monotone" dataKey="moodValue" stroke="#8884d8" dot={false} />
+              <XAxis 
+                dataKey="date" 
+                tick={{ fontSize: isSm ? 10 : 12 }} 
+                interval="preserveStartEnd"
+              />
+              <YAxis 
+                domain={[0, 5]} 
+                ticks={[0, 1, 2, 3, 4, 5]}
+                tickFormatter={(value) => {
+                  const mood = Object.keys(moodToValue).find(key => moodToValue[key] === value);
+                  return mood ? mood.charAt(0).toUpperCase() + mood.slice(1) : value;
+                }}
+              />
+              <Tooltip 
+                formatter={(value) => {
+                  const mood = Object.keys(moodToValue).find(key => moodToValue[key] === value);
+                  return mood ? mood.charAt(0).toUpperCase() + mood.slice(1) : value;
+                }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="moodValue" 
+                stroke="#8884d8" 
+                dot={{ fill: '#8884d8', strokeWidth: 2 }}
+                activeDot={{ r: 8 }}
+              />
             </LineChart>
           </ResponsiveContainer>
         </Box>

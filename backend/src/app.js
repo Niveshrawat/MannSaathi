@@ -5,6 +5,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/userRoutes');
 const counselorRoutes = require('./routes/counselorRoutes');
 const resourceRoutes = require('./routes/resourceRoutes');
+const journalRoutes = require('./routes/journalRoutes');
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/counselor', counselorRoutes);
 app.use('/api/resources', resourceRoutes);
+app.use('/api/journals', journalRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

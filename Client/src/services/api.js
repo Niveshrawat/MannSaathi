@@ -193,4 +193,13 @@ export const resourceAPI = {
     getMyResources: () => api.get('/resources/my-resources')
 };
 
+// Journal API functions
+export const journalAPI = {
+    getJournals: () => api.get('/journals'),
+    getJournal: (id) => api.get(`/journals/${id}`),
+    createJournal: (data) => api.post('/journals', data),
+    updateJournal: (id, data) => api.put(`/journals/${id}`, data),
+    deleteJournal: (id) => api.delete(`/journals/${id}`)
+};
+
 export default api; 
