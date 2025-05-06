@@ -47,6 +47,30 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  prices: {
+    video: {
+      type: Number,
+      default: 100,
+    },
+    chat: {
+      type: Number,
+      default: 80,
+    }
+  },
+  languages: [{
+    type: String
+  }],
+  bio: {
+    type: String,
+    default: ''
+  },
+  education: {
+    type: String,
+    default: ''
+  },
+  certifications: [{
+    type: String
+  }],
   availability: [{
     day: String,
     slots: [String],

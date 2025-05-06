@@ -7,9 +7,13 @@ const {
   getAppointments,
   updateAvailability,
   getClients,
+  getAvailableCounselors
 } = require('../controllers/counselorController');
 
-// All routes are protected and require authentication
+// Public routes
+router.get('/', getAvailableCounselors);
+
+// All other routes are protected and require authentication
 router.use(protect);
 
 // Profile routes

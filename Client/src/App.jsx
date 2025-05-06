@@ -23,6 +23,7 @@ import CounselorSettings from './pages/CounselorSettings';
 import ResourceEditor from './pages/ResourceEditor';
 import { authAPI } from './services/api';
 import MyResources from './components/ResourceComponents/MyResources';
+import CounselorSlots from './pages/CounselorSlots';
 
 const theme = createTheme({
   palette: {
@@ -132,6 +133,14 @@ const App = () => {
               element={
                 <ProtectedRoute roles={['counselor']}>
                   <ResourceEditor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/counselor-slots"
+              element={
+                <ProtectedRoute roles={['counselor']}>
+                  <CounselorSlots />
                 </ProtectedRoute>
               }
             />

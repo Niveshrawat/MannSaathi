@@ -1,6 +1,6 @@
 const Resource = require('../models/Resource');
 const asyncHandler = require('../middleware/async');
-const ErrorResponse = require('../utils/errorResponse');
+const ErrorResponse = require('../../utils/errorResponse');
 
 // @desc    Create a new resource
 // @route   POST /api/resources

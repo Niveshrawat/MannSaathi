@@ -6,8 +6,13 @@ const userRoutes = require('./routes/userRoutes');
 const counselorRoutes = require('./routes/counselorRoutes');
 const resourceRoutes = require('./routes/resourceRoutes');
 const journalRoutes = require('./routes/journalRoutes');
+const slotRoutes = require('./routes/slotRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 const app = express();
+// index.js or app.js (at the top)
+require('dotenv').config();
 
 // CORS configuration
 app.use(cors({
@@ -26,6 +31,9 @@ app.use('/api/users', userRoutes);
 app.use('/api/counselor', counselorRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/journals', journalRoutes);
+app.use('/api/slots', slotRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -36,5 +44,7 @@ app.use((err, req, res, next) => {
     error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
+
+console.log('SENDMAIL DEBUG:', process.env.EMAIL_USER, process.env.EMAIL_PASS ? 'SET' : 'NOT SET');
 
 module.exports = app; 

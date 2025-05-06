@@ -46,7 +46,7 @@ import {
   Article,
 } from '@mui/icons-material';
 import Navbar from '../components/CommonComponents/Navbar';
-import { getCounselorProfile, getCounselorAppointments, getCounselorClients, getCounselorResources } from '../services/api';
+import { getCounselorProfile, getCounselorAppointments, getCounselorClients, getCounselorResources, getCounselorBookings, updateBookingStatus } from '../services/api';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
@@ -80,6 +80,9 @@ const CounselorDashboard = () => {
   const [clients, setClients] = useState([]);
   const [resources, setResources] = useState([]);
   const [error, setError] = useState(null);
+  const [bookings, setBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [bookingsError, setBookingsError] = useState(null);
   const theme = useTheme();
   const navigate = useNavigate();
 
@@ -109,6 +112,31 @@ const CounselorDashboard = () => {
 
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        setBookingsLoading(true);
+        const response = await getCounselorBookings();
+        setBookings(response.bookings.filter(b => b.status === 'pending' || b.status === 'accepted'));
+        setBookingsError(null);
+      } catch (err) {
+        setBookingsError('Failed to load upcoming appointments.');
+      } finally {
+        setBookingsLoading(false);
+      }
+    };
+    fetchBookings();
+  }, []);
+
+  const handleBookingAction = async (bookingId, action) => {
+    try {
+      await updateBookingStatus(bookingId, action);
+      setBookings(bookings => bookings.map(b => b._id === bookingId ? { ...b, status: action } : b));
+    } catch (err) {
+      alert('Failed to update booking status.');
+    }
+  };
 
   // Function to render stars based on rating
   const renderStars = (rating) => {
@@ -457,79 +485,78 @@ const CounselorDashboard = () => {
                     <Typography variant="h6" fontWeight="bold">
                       Upcoming Appointments
                     </Typography>
-                    <Badge badgeContent={appointments.length} color="primary">
+                    <Badge badgeContent={bookings.length} color="primary">
                       <CalendarMonth color="primary" />
                     </Badge>
                   </Box>
-                  
-                  {appointments.length > 0 ? (
-                    <Box sx={{ maxHeight: '400px', overflow: 'auto' }}>
-                      {appointments.map((appointment) => (
-                        <Card 
-                          key={appointment._id} 
-                          sx={{ 
-                            mb: 2, 
-                            borderRadius: 2,
-                            transition: 'transform 0.2s, box-shadow 0.2s',
-                            '&:hover': {
-                              transform: 'translateX(5px)',
-                              boxShadow: theme.shadows[3]
-                            }
-                          }}
-                        >
-                          <CardContent sx={{ p: 2 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                              <Avatar 
-                                src={appointment.user?.profilePicture} 
-                                sx={{ mr: 2, bgcolor: theme.palette.primary.main }}
-                              >
-                                {appointment.user?.name?.charAt(0) || 'C'}
-                              </Avatar>
-                              <Box>
-                                <Typography variant="subtitle1" fontWeight="bold">
-                                  {appointment.user?.name || 'Client'}
-                                </Typography>
-                                <Chip 
-                                  label={appointment.status} 
-                                  size="small" 
-                                  color={
-                                    appointment.status === 'confirmed' ? 'success' : 
-                                    appointment.status === 'pending' ? 'warning' : 'error'
-                                  }
-                                  sx={{ mt: 0.5 }}
-                                />
-                              </Box>
-                            </Box>
-                            
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                              <Schedule sx={{ fontSize: 16, mr: 1, color: theme.palette.text.secondary }} />
-                              <Typography variant="body2">
-                                {new Date(appointment.date).toLocaleDateString()} at {appointment.time}
-                              </Typography>
-                            </Box>
-                            
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <Psychology sx={{ fontSize: 16, mr: 1, color: theme.palette.text.secondary }} />
-                              <Typography variant="body2">
-                                {appointment.type || 'Regular Session'}
-                              </Typography>
-                            </Box>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </Box>
+                  {bookingsLoading ? (
+                    <Typography>Loading...</Typography>
+                  ) : bookingsError ? (
+                    <Typography color="error">{bookingsError}</Typography>
+                  ) : bookings.length === 0 ? (
+                    <Typography>No upcoming appointments.</Typography>
                   ) : (
-                    <Box 
-                      sx={{ 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        py: 4
-                      }}
-                    >
-                      <CalendarMonth sx={{ fontSize: 60, color: theme.palette.text.secondary, mb: 2 }} />
-                      <Typography color="text.secondary">No upcoming appointments</Typography>
+                    <Box>
+                      {bookings.map((booking) => {
+                        console.log('Booking status:', booking.status, booking);
+                        return (
+                          <Card 
+                            key={booking._id} 
+                            sx={{ 
+                              mb: 2, 
+                              borderRadius: 2,
+                              transition: 'transform 0.2s, box-shadow 0.2s',
+                              '&:hover': {
+                                transform: 'translateX(5px)',
+                                boxShadow: theme.shadows[3]
+                              }
+                            }}
+                          >
+                            <CardContent sx={{ p: 2 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                <Avatar 
+                                  src={booking.user?.profilePicture} 
+                                  sx={{ mr: 2, bgcolor: theme.palette.primary.main }}
+                                >
+                                  {booking.user?.name?.charAt(0) || 'C'}
+                                </Avatar>
+                                <Box>
+                                  <Typography variant="subtitle1" fontWeight="bold">
+                                    {booking.user?.name || 'Client'}
+                                  </Typography>
+                                  <Chip 
+                                    label={booking.status} 
+                                    size="small" 
+                                    color={
+                                      booking.status === 'accepted' ? 'success' : 
+                                      booking.status === 'pending' ? 'warning' : 'error'
+                                    }
+                                    sx={{ mt: 0.5 }}
+                                  />
+                                </Box>
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                <Schedule sx={{ fontSize: 16, mr: 1, color: theme.palette.text.secondary }} />
+                                <Typography variant="body2">
+                                  {booking.slot?.date} at {booking.slot?.startTime}
+                                </Typography>
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                <Psychology sx={{ fontSize: 16, mr: 1, color: theme.palette.text.secondary }} />
+                                <Typography variant="body2">
+                                  {booking.slot?.sessionType === 'video' ? 'Video Call' : 'Chat'}
+                                </Typography>
+                              </Box>
+                              {booking.status === 'pending' && (
+                                <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                                  <Button variant="contained" color="success" onClick={() => handleBookingAction(booking._id, 'accepted')}>Accept</Button>
+                                  <Button variant="outlined" color="error" onClick={() => handleBookingAction(booking._id, 'rejected')}>Reject</Button>
+                                </Box>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </Box>
                   )}
                 </Paper>

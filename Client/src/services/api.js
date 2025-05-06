@@ -117,7 +117,8 @@ export const counselorAPI = {
     updateProfile: (data) => api.put('/counselor/profile', data),
     getAppointments: () => api.get('/counselor/appointments'),
     updateAvailability: (data) => api.put('/counselor/availability', data),
-    getClients: () => api.get('/counselor/clients')
+    getClients: () => api.get('/counselor/clients'),
+    getAvailableCounselors: () => api.get('/counselor')
 };
 
 // Session API
@@ -200,6 +201,60 @@ export const journalAPI = {
     createJournal: (data) => api.post('/journals', data),
     updateJournal: (id, data) => api.put(`/journals/${id}`, data),
     deleteJournal: (id) => api.delete(`/journals/${id}`)
+};
+
+export const getAvailableCounselors = async () => {
+    try {
+        const response = await api.get('/counselor');
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Failed to get available counselors' };
+    }
+};
+
+export const getAvailableSlots = async (counselorId) => {
+    try {
+        const response = await api.get(`/slots/available/${counselorId}`);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Failed to get available slots' };
+    }
+};
+
+export const createBooking = async (slotId, notes) => {
+    try {
+        const response = await api.post('/bookings', { slotId, notes });
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Failed to create booking' };
+    }
+};
+
+export const getMyBookings = async () => {
+    try {
+        const response = await api.get('/bookings/my');
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Failed to get bookings' };
+    }
+};
+
+export const getCounselorBookings = async () => {
+    try {
+        const response = await api.get('/bookings/counselor');
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Failed to get counselor bookings' };
+    }
+};
+
+export const updateBookingStatus = async (bookingId, status) => {
+    try {
+        const response = await api.put(`/bookings/${bookingId}/status`, { status });
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Failed to update booking status' };
+    }
 };
 
 export default api; 

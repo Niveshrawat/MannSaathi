@@ -76,7 +76,15 @@ const CounselorProfile = () => {
     name: '',
     specialization: '',
     experience: '',
-    profilePicture: ''
+    profilePicture: '',
+    bio: '',
+    education: '',
+    certifications: '',
+    languages: '',
+    prices: {
+      video: '',
+      chat: ''
+    }
   });
   const theme = useTheme();
 
@@ -90,7 +98,15 @@ const CounselorProfile = () => {
           name: response.counselor.name || '',
           specialization: response.counselor.specialization || '',
           experience: response.counselor.experience || '',
-          profilePicture: response.counselor.profilePicture || ''
+          profilePicture: response.counselor.profilePicture || '',
+          bio: response.counselor.bio || '',
+          education: response.counselor.education || '',
+          certifications: response.counselor.certifications || '',
+          languages: response.counselor.languages || '',
+          prices: {
+            video: response.counselor.prices?.video || '',
+            chat: response.counselor.prices?.chat || ''
+          }
         });
         setError(null);
       } catch (err) {
@@ -337,8 +353,8 @@ const CounselorProfile = () => {
                   <Divider sx={{ mb: 3 }} />
 
                   <form onSubmit={handleSubmit}>
-                    <Grid container spacing={3}>
-                      <Grid item xs={12} md={6}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                      <Box sx={{ display: 'flex', gap: 2 }}>
                         <TextField
                           label="Name"
                           name="name"
@@ -347,10 +363,7 @@ const CounselorProfile = () => {
                           fullWidth
                           required
                           disabled={!isEditing}
-                          sx={{ mb: 2 }}
                         />
-                      </Grid>
-                      <Grid item xs={12} md={6}>
                         <TextField
                           label="Specialization"
                           name="specialization"
@@ -359,10 +372,9 @@ const CounselorProfile = () => {
                           fullWidth
                           required
                           disabled={!isEditing}
-                          sx={{ mb: 2 }}
                         />
-                      </Grid>
-                      <Grid item xs={12} md={6}>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 2 }}>
                         <TextField
                           label="Years of Experience"
                           name="experience"
@@ -372,10 +384,7 @@ const CounselorProfile = () => {
                           fullWidth
                           required
                           disabled={!isEditing}
-                          sx={{ mb: 2 }}
                         />
-                      </Grid>
-                      <Grid item xs={12} md={6}>
                         <TextField
                           label="Profile Picture URL"
                           name="profilePicture"
@@ -384,10 +393,79 @@ const CounselorProfile = () => {
                           fullWidth
                           disabled={!isEditing}
                           helperText="Enter a URL for your profile picture"
-                          sx={{ mb: 2 }}
                         />
-                      </Grid>
-                    </Grid>
+                      </Box>
+                      <TextField
+                        label="Bio"
+                        name="bio"
+                        value={formData.bio}
+                        onChange={handleChange}
+                        fullWidth
+                        multiline
+                        minRows={2}
+                        disabled={!isEditing}
+                      />
+                      <Box sx={{ display: 'flex', gap: 2 }}>
+                        <TextField
+                          label="Education"
+                          name="education"
+                          value={formData.education}
+                          onChange={handleChange}
+                          fullWidth
+                          disabled={!isEditing}
+                        />
+                        <TextField
+                          label="Certifications (comma separated)"
+                          name="certifications"
+                          value={formData.certifications}
+                          onChange={handleChange}
+                          fullWidth
+                          disabled={!isEditing}
+                        />
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 2 }}>
+                        <TextField
+                          label="Languages (comma separated)"
+                          name="languages"
+                          value={formData.languages}
+                          onChange={handleChange}
+                          fullWidth
+                          disabled={!isEditing}
+                        />
+                        <TextField
+                          label="Video Session Price"
+                          name="videoPrice"
+                          type="number"
+                          value={formData.prices?.video || ''}
+                          onChange={e => setFormData(prev => ({
+                            ...prev,
+                            prices: { ...prev.prices, video: e.target.value }
+                          }))}
+                          fullWidth
+                          disabled={!isEditing}
+                        />
+                        <TextField
+                          label="Chat Session Price"
+                          name="chatPrice"
+                          type="number"
+                          value={formData.prices?.chat || ''}
+                          onChange={e => setFormData(prev => ({
+                            ...prev,
+                            prices: { ...prev.prices, chat: e.target.value }
+                          }))}
+                          fullWidth
+                          disabled={!isEditing}
+                        />
+                      </Box>
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        disabled={!isEditing || saving}
+                        sx={{ alignSelf: 'flex-end', mt: 2 }}
+                      >
+                        {saving ? 'Saving...' : 'Save Changes'}
+                      </Button>
+                    </Box>
                   </form>
 
                   <Box sx={{ mt: 4 }}>

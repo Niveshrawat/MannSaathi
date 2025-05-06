@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -58,12 +58,16 @@ import {
   Legend,
 } from 'recharts';
 import Navbar from '../../components/CommonComponents/Navbar';
+import { getMyBookings } from '../../services/api';
 
 const UserDashboard = () => {
   const navigate = useNavigate();
   const [openSessionsDialog, setOpenSessionsDialog] = useState(false);
   const theme = useTheme();
   const isSm = useMediaQuery(theme.breakpoints.down('sm'));
+  const [bookings, setBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [bookingsError, setBookingsError] = useState(null);
 
   // Mock user data
   const user = {
@@ -184,48 +188,21 @@ const UserDashboard = () => {
     navigate(`/session?id=${sessionId}`);
   };
 
-  // Mock sessions data
-  const mockSessions = [
-    {
-      id: 3,
-      counselor: {
-        name: "Dr. Sarah Johnson",
-        specialization: "Anxiety & Depression",
-        rating: 4.8,
-        image: "https://randomuser.me/api/portraits/women/1.jpg"
-      },
-      date: "2024-03-20",
-      time: "10:00 AM",
-      duration: 60,
-      type: "video"
-    },
-    {
-      id: 4,
-      counselor: {
-        name: "Dr. Michael Chen",
-        specialization: "Stress Management",
-        rating: 4.9,
-        image: "https://randomuser.me/api/portraits/men/2.jpg"
-      },
-      date: "2024-03-22",
-      time: "2:30 PM",
-      duration: 45,
-      type: "chat"
-    },
-    {
-      id: 5,
-      counselor: {
-        name: "Dr. Emily Brown",
-        specialization: "Relationship Counseling",
-        rating: 4.7,
-        image: "https://randomuser.me/api/portraits/women/3.jpg"
-      },
-      date: "2024-03-25",
-      time: "11:00 AM",
-      duration: 60,
-      type: "video"
-    }
-  ];
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        setBookingsLoading(true);
+        const response = await getMyBookings();
+        setBookings(response.bookings.filter(b => b.status === 'pending' || b.status === 'accepted'));
+        setBookingsError(null);
+      } catch (err) {
+        setBookingsError('Failed to load upcoming sessions.');
+      } finally {
+        setBookingsLoading(false);
+      }
+    };
+    fetchBookings();
+  }, []);
 
   const DashboardInsights = ({ user }) => {
     // Calculate mood distribution
@@ -491,47 +468,55 @@ const UserDashboard = () => {
                   View All
                 </Button>
               </Box>
-              <List>
-                {user.upcomingSessions.map((session) => (
-                  <ListItem 
-                    key={session.id} 
-                    sx={{ 
-                      bgcolor: '#ffffff',
-                      borderRadius: 2,
-                      mb: 1,
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-                      transition: 'transform 0.2s',
-                      '&:hover': {
-                        transform: 'translateX(4px)'
-                      }
-                    }}
-                  >
-                    <ListItemAvatar>
-                      <Avatar src={session.counselorAvatar} />
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={session.counselor}
-                      secondary={`${session.date} at ${session.time}`}
-                    />
-                    <Chip 
-                      label={session.type} 
-                      color="primary" 
-                      size="small" 
-                      sx={{ mr: 1 }} 
-                    />
-                    <IconButton 
-                      onClick={() => navigate('/session')}
-                      sx={{
+              {bookingsLoading ? (
+                <Typography>Loading...</Typography>
+              ) : bookingsError ? (
+                <Typography color="error">{bookingsError}</Typography>
+              ) : bookings.length === 0 ? (
+                <Typography>No upcoming sessions.</Typography>
+              ) : (
+                <List>
+                  {bookings.map((booking) => (
+                    <ListItem 
+                      key={booking._id} 
+                      sx={{ 
+                        bgcolor: '#ffffff',
+                        borderRadius: 2,
+                        mb: 1,
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+                        transition: 'transform 0.2s',
                         '&:hover': {
-                          bgcolor: 'rgba(33, 150, 243, 0.08)'
+                          transform: 'translateX(4px)'
                         }
                       }}
                     >
-                      <NavigateNext />
-                    </IconButton>
-                  </ListItem>
-                ))}
-              </List>
+                      <ListItemAvatar>
+                        <Avatar src={booking.counselor?.profilePicture || ''} />
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={booking.counselor?.name}
+                        secondary={`${booking.slot?.date} at ${booking.slot?.startTime}`}
+                      />
+                      <Chip 
+                        label={booking.slot?.sessionType === 'video' ? 'Video Call' : 'Chat'} 
+                        color="primary" 
+                        size="small" 
+                        sx={{ mr: 1 }} 
+                      />
+                      <IconButton 
+                        onClick={() => navigate('/session?id=' + booking._id)}
+                        sx={{
+                          '&:hover': {
+                            bgcolor: 'rgba(33, 150, 243, 0.08)'
+                          }
+                        }}
+                      >
+                        <NavigateNext />
+                      </IconButton>
+                    </ListItem>
+                  ))}
+                </List>
+              )}
             </Paper>
           </Box>
 
@@ -695,7 +680,7 @@ const UserDashboard = () => {
         </DialogTitle>
         <DialogContent>
           <List>
-            {mockSessions.map((session) => (
+            {user.upcomingSessions.map((session) => (
               <ListItemButton
                 key={session.id}
                 onClick={() => handleJoinSession(session.id)}
@@ -710,41 +695,28 @@ const UserDashboard = () => {
                 }}
               >
                 <ListItemAvatar>
-                  <Avatar src={session.counselor.image} alt={session.counselor.name} />
+                  <Avatar src={session.counselorAvatar} alt={session.counselor} />
                 </ListItemAvatar>
                 <ListItemText
-                  primary={session.counselor.name}
-                  secondary={
-                    <>
-                      <Typography variant="body2" color="text.secondary">
-                        {session.date} at {session.time}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {session.counselor.specialization}
-                      </Typography>
-                      <Chip
-                        size="small"
-                        label={session.type === 'video' ? 'Video Session' : 'Chat Session'}
-                        color={session.type === 'video' ? 'primary' : 'secondary'}
-                        sx={{ mt: 1 }}
-                      />
-                    </>
-                  }
+                  primary={session.counselor}
+                  secondary={`${session.date} at ${session.time}`}
                 />
-                <ListItemIcon>
-                  <IconButton
-                    color="primary"
-                    size="small"
-                    sx={{
-                      bgcolor: 'rgba(33, 150, 243, 0.08)',
-                      '&:hover': {
-                        bgcolor: 'rgba(33, 150, 243, 0.12)',
-                      },
-                    }}
-                  >
-                    <VideoCall />
-                  </IconButton>
-                </ListItemIcon>
+                <Chip 
+                  label={session.type} 
+                  color="primary" 
+                  size="small" 
+                  sx={{ mr: 1 }} 
+                />
+                <IconButton 
+                  onClick={() => handleJoinSession(session.id)}
+                  sx={{
+                    '&:hover': {
+                      bgcolor: 'rgba(33, 150, 243, 0.08)'
+                    }
+                  }}
+                >
+                  <VideoCall />
+                </IconButton>
               </ListItemButton>
             ))}
           </List>

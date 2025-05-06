@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Container, 
@@ -23,120 +23,22 @@ import {
   DialogActions,
   Stepper,
   Step,
-  StepLabel
+  StepLabel,
+  CircularProgress,
+  Alert,
+  Snackbar
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { format } from 'date-fns';
 import Navbar from '../components/CommonComponents/Navbar';
-
-// Mock data for counselors - in a real app, this would come from your backend
-const mockCounselors = [
-  {
-    id: 1,
-    name: 'Dr. Sarah Johnson',
-    specialization: 'Anxiety & Depression',
-    experience: '8 years',
-    rating: 4.8,
-    prices: {
-      video: 75,
-      chat: 50
-    },
-    languages: ['English', 'Spanish'],
-    availability: 'Morning',
-    image: 'https://i.pravatar.cc/150?img=1',
-    bio: 'Dr. Johnson specializes in treating anxiety and depression using evidence-based approaches including CBT and mindfulness techniques.',
-    education: 'Ph.D. in Clinical Psychology, Stanford University',
-    certifications: ['Licensed Clinical Psychologist', 'CBT Certified', 'Mindfulness Instructor']
-  },
-  {
-    id: 2,
-    name: 'Dr. Michael Chen',
-    specialization: 'Stress Management',
-    experience: '12 years',
-    rating: 4.9,
-    prices: {
-      video: 85,
-      chat: 60
-    },
-    languages: ['English', 'Chinese'],
-    availability: 'Afternoon',
-    image: 'https://i.pravatar.cc/150?img=2',
-    bio: 'Dr. Chen has extensive experience in helping clients manage stress and develop resilience through practical techniques and lifestyle changes.',
-    education: 'Ph.D. in Counseling Psychology, Columbia University',
-    certifications: ['Licensed Professional Counselor', 'Stress Management Specialist', 'Executive Coach']
-  },
-  {
-    id: 3,
-    name: 'Dr. Priya Patel',
-    specialization: 'Relationship Counseling',
-    experience: '6 years',
-    rating: 4.7,
-    prices: {
-      video: 70,
-      chat: 45
-    },
-    languages: ['English', 'Hindi'],
-    availability: 'Evening',
-    image: 'https://i.pravatar.cc/150?img=3',
-    bio: 'Dr. Patel focuses on helping individuals and couples improve their relationships through effective communication and understanding.',
-    education: 'Ph.D. in Marriage and Family Therapy, University of California',
-    certifications: ['Licensed Marriage and Family Therapist', 'Gottman Method Certified', 'Emotionally Focused Therapy Trained']
-  },
-  {
-    id: 4,
-    name: 'Dr. James Wilson',
-    specialization: 'Trauma Recovery',
-    experience: '10 years',
-    rating: 4.9,
-    prices: {
-      video: 90,
-      chat: 65
-    },
-    languages: ['English'],
-    availability: 'Morning',
-    image: 'https://i.pravatar.cc/150?img=4',
-    bio: 'Dr. Wilson specializes in helping clients recover from trauma using EMDR and other evidence-based approaches.',
-    education: 'Ph.D. in Clinical Psychology, Harvard University',
-    certifications: ['Licensed Clinical Psychologist', 'EMDR Certified', 'Trauma Specialist']
-  },
-  {
-    id: 5,
-    name: 'Dr. Emily Rodriguez',
-    specialization: 'Addiction Recovery',
-    experience: '7 years',
-    rating: 4.8,
-    prices: {
-      video: 80,
-      chat: 55
-    },
-    languages: ['English', 'Spanish'],
-    availability: 'Afternoon',
-    image: 'https://i.pravatar.cc/150?img=5',
-    bio: 'Dr. Rodriguez has dedicated her career to helping individuals overcome addiction and build a fulfilling life in recovery.',
-    education: 'Ph.D. in Clinical Psychology, University of Michigan',
-    certifications: ['Licensed Clinical Psychologist', 'Addiction Specialist', 'Motivational Interviewing Certified']
-  },
-  {
-    id: 6,
-    name: 'Dr. Robert Kim',
-    specialization: 'Career Counseling',
-    experience: '9 years',
-    rating: 4.7,
-    prices: {
-      video: 75,
-      chat: 50
-    },
-    languages: ['English', 'Korean'],
-    availability: 'Evening',
-    image: 'https://i.pravatar.cc/150?img=6',
-    bio: 'Dr. Kim helps clients navigate career transitions, find meaningful work, and develop professional skills for success.',
-    education: 'Ph.D. in Counseling Psychology, University of Pennsylvania',
-    certifications: ['Licensed Professional Counselor', 'Career Development Specialist', 'Executive Coach']
-  }
-];
+import { getAvailableCounselors, getAvailableSlots, createBooking, getMyBookings } from '../services/api';
+import { processPayment } from '../services/paymentService';
 
 const BookSession = () => {
+  const [counselors, setCounselors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
     specialization: '',
     language: '',
@@ -154,6 +56,57 @@ const BookSession = () => {
   const [selectedTime, setSelectedTime] = useState(null);
   const [selectedSessionType, setSelectedSessionType] = useState('video');
   const [bookingComplete, setBookingComplete] = useState(false);
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState(null);
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [bookingError, setBookingError] = useState(null);
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [existingBooking, setExistingBooking] = useState(null);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  useEffect(() => {
+    const fetchCounselors = async () => {
+      try {
+        setLoading(true);
+        const response = await getAvailableCounselors();
+        setCounselors(response.counselors);
+        setError(null);
+      } catch (err) {
+        setError('Failed to load counselors. Please try again later.');
+        console.error('Error fetching counselors:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCounselors();
+  }, []);
+
+  useEffect(() => {
+    const checkExistingBookings = async () => {
+      try {
+        const response = await getMyBookings();
+        const activeBookings = response.bookings.filter(booking => 
+          booking.status === 'pending' || booking.status === 'accepted'
+        );
+        if (activeBookings.length > 0) {
+          setExistingBooking(activeBookings[0]);
+          setSnackbar({
+            open: true,
+            message: `You already have an active booking with ${activeBookings[0].counselor.name}`,
+            severity: 'info'
+          });
+        }
+      } catch (err) {
+        console.error('Error checking existing bookings:', err);
+      }
+    };
+    checkExistingBookings();
+  }, []);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -173,6 +126,21 @@ const BookSession = () => {
     setShowBookingDialog(true);
   };
 
+  useEffect(() => {
+    if (showBookingDialog && selectedCounselor) {
+      setSlotsLoading(true);
+      setSlotsError(null);
+      setAvailableSlots([]);
+      setSelectedSlot(null);
+      console.log('Selected counselor id:', selectedCounselor.id);
+      alert('Selected counselor id: ' + selectedCounselor.id);
+      getAvailableSlots(selectedCounselor.id)
+        .then(res => setAvailableSlots(res.slots))
+        .catch(() => setSlotsError('Failed to load available slots.'))
+        .finally(() => setSlotsLoading(false));
+    }
+  }, [showBookingDialog, selectedCounselor]);
+
   const handleNextStep = () => {
     if (bookingStep === 0 && !selectedSessionType) {
       return; // Don't proceed if no session type is selected
@@ -184,18 +152,68 @@ const BookSession = () => {
     setBookingStep(prev => prev - 1);
   };
 
-  const handleCompleteBooking = () => {
-    // Here you would typically make an API call to save the booking
-    setBookingComplete(true);
-    setTimeout(() => {
-      setShowBookingDialog(false);
-      setBookingStep(0);
-      setSelectedSessionType('video'); // Reset to default
-      setBookingComplete(false);
-    }, 2000);
+  const handleCompleteBooking = async () => {
+    console.log('Complete booking clicked');
+    if (!selectedSlot) {
+      setBookingError('Please select a slot.');
+      return;
+    }
+
+    if (existingBooking) {
+      setBookingError('You already have an active booking. Please complete or cancel your existing booking before creating a new one.');
+      return;
+    }
+
+    console.log('Opening payment dialog');
+    setShowPaymentDialog(true);
   };
 
-  const filteredCounselors = mockCounselors.filter(counselor => {
+  const handlePaymentComplete = async () => {
+    console.log('Payment complete clicked');
+    setPaymentProcessing(true);
+    setPaymentError(null);
+    
+    try {
+      console.log('Creating booking...');
+      const bookingResponse = await createBooking(selectedSlot._id, '');
+      console.log('Booking created:', bookingResponse);
+      
+      console.log('Processing payment...');
+      await processPayment(selectedSlot.price, bookingResponse.booking._id);
+      console.log('Payment processed successfully');
+      
+      setBookingSuccess(true);
+      setBookingComplete(true);
+      setShowPaymentDialog(false);
+      
+      setSnackbar({
+        open: true,
+        message: 'Booking and payment successful!',
+        severity: 'success'
+      });
+      
+      setTimeout(() => {
+        setShowBookingDialog(false);
+        setBookingStep(0);
+        setSelectedSessionType('video');
+        setBookingComplete(false);
+        setBookingSuccess(false);
+        setSelectedSlot(null);
+      }, 2000);
+    } catch (err) {
+      console.error('Payment error:', err);
+      setPaymentError(err.message || 'Payment failed. Please try again.');
+      setSnackbar({
+        open: true,
+        message: err.message || 'Payment failed. Please try again.',
+        severity: 'error'
+      });
+    } finally {
+      setPaymentProcessing(false);
+    }
+  };
+
+  const filteredCounselors = counselors.filter(counselor => {
     if (filters.specialization && counselor.specialization !== filters.specialization) return false;
     if (filters.language && !counselor.languages.includes(filters.language)) return false;
     if (filters.availability && counselor.availability !== filters.availability) return false;
@@ -207,6 +225,50 @@ const BookSession = () => {
     if (filters.rating && counselor.rating < Number(filters.rating)) return false;
     return true;
   });
+
+  if (loading) {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        minHeight: '100vh',
+        bgcolor: '#FAFAFA'
+      }}>
+        <Navbar />
+        <Container maxWidth="lg" sx={{ 
+          py: 4,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexGrow: 1
+        }}>
+          <CircularProgress />
+        </Container>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        minHeight: '100vh',
+        bgcolor: '#FAFAFA'
+      }}>
+        <Navbar />
+        <Container maxWidth="lg" sx={{ 
+          py: 4,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexGrow: 1
+        }}>
+          <Typography color="error">{error}</Typography>
+        </Container>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ 
@@ -567,7 +629,7 @@ const BookSession = () => {
         fullWidth
       >
         <DialogTitle>
-          <Typography variant="h5" fontWeight="bold">
+          <Typography variant="h6" fontWeight="bold" component="span">
             Book a Session with {selectedCounselor?.name}
           </Typography>
         </DialogTitle>
@@ -647,22 +709,46 @@ const BookSession = () => {
           )}
 
           {bookingStep === 1 && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, py: 2 }}>
-              <Typography variant="h6">Select Date & Time</Typography>
-              <LocalizationProvider dateAdapter={AdapterDateFns}>
-                <DatePicker
-                  label="Date"
-                  value={selectedDate}
-                  onChange={setSelectedDate}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
-                />
-                <TimePicker
-                  label="Time"
-                  value={selectedTime}
-                  onChange={setSelectedTime}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
-                />
-              </LocalizationProvider>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, py: 2 }}>
+              <Typography variant="h6">Select an Available Slot</Typography>
+              {slotsLoading ? (
+                <CircularProgress />
+              ) : slotsError ? (
+                <Typography color="error">{slotsError}</Typography>
+              ) : availableSlots.length === 0 ? (
+                <Typography>No available slots for this counselor.</Typography>
+              ) : (
+                availableSlots.map(slot => (
+                  <Paper
+                    key={slot._id}
+                    elevation={0}
+                    sx={{
+                      p: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      border: selectedSlot?._id === slot._id ? '2px solid #2196F3' : '1px solid #eee',
+                      cursor: 'pointer',
+                      bgcolor: selectedSlot?._id === slot._id ? 'primary.light' : 'white'
+                    }}
+                    onClick={() => setSelectedSlot(slot)}
+                  >
+                    <Box>
+                      <Typography><b>Date:</b> {slot.date}</Typography>
+                      <Typography><b>Time:</b> {slot.startTime} - {slot.endTime}</Typography>
+                      <Typography><b>Type:</b> {slot.sessionType}</Typography>
+                      <Typography><b>Price:</b> {slot.price}</Typography>
+                    </Box>
+                    <Button
+                      variant={selectedSlot?._id === slot._id ? 'contained' : 'outlined'}
+                      color="primary"
+                      onClick={() => setSelectedSlot(slot)}
+                    >
+                      {selectedSlot?._id === slot._id ? 'Selected' : 'Select'}
+                    </Button>
+                  </Paper>
+                ))
+              )}
             </Box>
           )}
 
@@ -715,9 +801,7 @@ const BookSession = () => {
             <Button 
               variant="contained"
               onClick={handleNextStep}
-              disabled={
-                (bookingStep === 1 && (!selectedDate || !selectedTime))
-              }
+              disabled={bookingStep === 1 && !selectedSlot}
             >
               Next
             </Button>
@@ -731,6 +815,108 @@ const BookSession = () => {
           )}
         </DialogActions>
       </Dialog>
+
+      {existingBooking && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          You already have an active booking with {existingBooking.counselor.name} on {existingBooking.slot.date} at {existingBooking.slot.startTime}.
+          Please complete or cancel this booking before creating a new one.
+        </Alert>
+      )}
+
+      {bookingError && (
+        <Typography color="error" sx={{ mt: 1 }}>{bookingError}</Typography>
+      )}
+      {bookingSuccess && (
+        <Typography color="success.main" sx={{ mt: 1 }}>
+          Booking successful! You will see your session in your dashboard shortly.
+        </Typography>
+      )}
+
+      {/* Payment Dialog */}
+      <Dialog
+        open={showPaymentDialog}
+        onClose={() => !paymentProcessing && setShowPaymentDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h6" fontWeight="bold">
+            Complete Payment
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ py: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              Booking Summary
+            </Typography>
+            <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', mb: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography>Counselor:</Typography>
+                <Typography fontWeight="bold">{selectedCounselor?.name}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography>Session Type:</Typography>
+                <Typography fontWeight="bold">
+                  {selectedSessionType === 'video' ? 'Video Call' : 'Chat'}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography>Date & Time:</Typography>
+                <Typography fontWeight="bold">
+                  {selectedSlot?.date} at {selectedSlot?.startTime}
+                </Typography>
+              </Box>
+              <Divider sx={{ my: 2 }} />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="h6">Total Amount:</Typography>
+                <Typography variant="h6" color="primary" fontWeight="bold">
+                  ${selectedSlot?.price}
+                </Typography>
+              </Box>
+            </Paper>
+            
+            {paymentError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {paymentError}
+              </Alert>
+            )}
+            
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Please complete the payment to confirm your booking.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setShowPaymentDialog(false)}
+            disabled={paymentProcessing}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handlePaymentComplete}
+            disabled={paymentProcessing}
+          >
+            {paymentProcessing ? 'Processing...' : 'Pay Now'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

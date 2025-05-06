@@ -275,6 +275,12 @@ const Navbar = () => {
                     </ListItemIcon>
                     Settings
                   </MenuItem>,
+                  <MenuItem key="slots" onClick={() => handleMenuClick('/counselor-slots')}>
+                    <ListItemIcon>
+                      <CalendarMonth fontSize="small" />
+                    </ListItemIcon>
+                    Manage Slots
+                  </MenuItem>,
                   <MenuItem key="my-resources" onClick={() => {
                     handleCloseUserMenu();
                     navigate('/resources/my-resources');

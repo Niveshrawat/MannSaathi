@@ -1,6 +1,6 @@
 const Journal = require('../models/Journal');
 const asyncHandler = require('../middleware/async');
-const ErrorResponse = require('../utils/errorResponse');
+const ErrorResponse = require('../../utils/errorResponse');
 
 // @desc    Create a new journal entry
 // @route   POST /api/journals

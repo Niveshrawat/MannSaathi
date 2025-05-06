@@ -53,7 +53,7 @@ exports.updateProfile = async (req, res) => {
       });
     }
 
-    const { name, profilePicture, specialization, experience } = req.body;
+    const { name, profilePicture, specialization, experience, bio, education, certifications, languages, prices } = req.body;
 
     const counselor = await User.findById(req.user.id);
     if (!counselor) {
@@ -68,6 +68,11 @@ exports.updateProfile = async (req, res) => {
     if (profilePicture) counselor.profilePicture = profilePicture;
     if (specialization) counselor.specialization = specialization;
     if (experience) counselor.experience = experience;
+    if (bio !== undefined) counselor.bio = bio;
+    if (education !== undefined) counselor.education = education;
+    if (certifications !== undefined) counselor.certifications = certifications;
+    if (languages !== undefined) counselor.languages = languages;
+    if (prices !== undefined) counselor.prices = prices;
 
     await counselor.save();
 
@@ -200,6 +205,41 @@ exports.getClients = async (req, res) => {
     res.status(200).json({
       success: true,
       clients
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Get all available counselors
+// @route   GET /api/counselors
+// @access  Public
+exports.getAvailableCounselors = async (req, res) => {
+  try {
+    const counselors = await User.find({ role: 'counselor' })
+      .select('name email profilePicture specialization experience rating availability prices languages bio education certifications')
+      .sort({ rating: -1 });
+
+    res.status(200).json({
+      success: true,
+      counselors: counselors.map(counselor => ({
+        id: counselor._id,
+        name: counselor.name,
+        email: counselor.email,
+        profilePicture: counselor.profilePicture,
+        specialization: counselor.specialization,
+        experience: counselor.experience,
+        rating: counselor.rating,
+        availability: counselor.availability,
+        prices: counselor.prices,
+        languages: counselor.languages || [],
+        bio: counselor.bio || '',
+        education: counselor.education || '',
+        certifications: counselor.certifications || []
+      }))
     });
   } catch (error) {
     res.status(500).json({
