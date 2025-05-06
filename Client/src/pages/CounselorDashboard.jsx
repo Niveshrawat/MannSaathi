@@ -49,6 +49,7 @@ import Navbar from '../components/CommonComponents/Navbar';
 import { getCounselorProfile, getCounselorAppointments, getCounselorClients, getCounselorResources, getCounselorBookings, updateBookingStatus } from '../services/api';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 
 // Animation variants
 const containerVariants = {
@@ -118,7 +119,7 @@ const CounselorDashboard = () => {
       try {
         setBookingsLoading(true);
         const response = await getCounselorBookings();
-        setBookings(response.bookings.filter(b => b.status === 'pending' || b.status === 'accepted'));
+        setBookings(response.bookings); // Store all bookings
         setBookingsError(null);
       } catch (err) {
         setBookingsError('Failed to load upcoming appointments.');
@@ -135,6 +136,15 @@ const CounselorDashboard = () => {
       setBookings(bookings => bookings.map(b => b._id === bookingId ? { ...b, status: action } : b));
     } catch (err) {
       alert('Failed to update booking status.');
+    }
+  };
+
+  const handleMarkCompleted = async (bookingId) => {
+    try {
+      await api.put(`/bookings/${bookingId}/complete`);
+      setBookings(bookings => bookings.map(b => b._id === bookingId ? { ...b, status: 'completed' } : b));
+    } catch (err) {
+      alert('Failed to mark session as completed.');
     }
   };
 
@@ -526,70 +536,79 @@ const CounselorDashboard = () => {
                     <Typography>Loading...</Typography>
                   ) : bookingsError ? (
                     <Typography color="error">{bookingsError}</Typography>
-                  ) : bookings.length === 0 ? (
+                  ) : bookings.filter(b => b.status === 'pending' || b.status === 'accepted').length === 0 ? (
                     <Typography>No upcoming appointments.</Typography>
                   ) : (
                     <Box>
-                      {bookings.map((booking) => {
-                        console.log('Booking status:', booking.status, booking);
-                        return (
-                          <Card 
-                            key={booking._id} 
-                            sx={{ 
-                              mb: 2, 
-                              borderRadius: 2,
-                              transition: 'transform 0.2s, box-shadow 0.2s',
-                              '&:hover': {
-                                transform: 'translateX(5px)',
-                                boxShadow: theme.shadows[3]
-                              }
-                            }}
-                          >
-                            <CardContent sx={{ p: 2 }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                <Avatar 
-                                  src={booking.user?.profilePicture} 
-                                  sx={{ mr: 2, bgcolor: theme.palette.primary.main }}
-                                >
-                                  {booking.user?.name?.charAt(0) || 'C'}
-                                </Avatar>
-                                <Box>
-                                  <Typography variant="subtitle1" fontWeight="bold">
-                                    {booking.user?.name || 'Client'}
+                      {bookings
+                        .filter(b => b.status === 'pending' || b.status === 'accepted')
+                        .map((booking) => {
+                          console.log('Booking status:', booking.status, booking);
+                          return (
+                            <Card 
+                              key={booking._id} 
+                              sx={{ 
+                                mb: 2, 
+                                borderRadius: 2,
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                '&:hover': {
+                                  transform: 'translateX(5px)',
+                                  boxShadow: theme.shadows[3]
+                                }
+                              }}
+                            >
+                              <CardContent sx={{ p: 2 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                  <Avatar 
+                                    src={booking.user?.profilePicture} 
+                                    sx={{ mr: 2, bgcolor: theme.palette.primary.main }}
+                                  >
+                                    {booking.user?.name?.charAt(0) || 'C'}
+                                  </Avatar>
+                                  <Box>
+                                    <Typography variant="subtitle1" fontWeight="bold">
+                                      {booking.user?.name || 'Client'}
+                                    </Typography>
+                                    <Chip 
+                                      label={booking.status} 
+                                      size="small" 
+                                      color={
+                                        booking.status === 'accepted' ? 'success' : 
+                                        booking.status === 'pending' ? 'warning' : 'error'
+                                      }
+                                      sx={{ mt: 0.5 }}
+                                    />
+                                  </Box>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                  <Schedule sx={{ fontSize: 16, mr: 1, color: theme.palette.text.secondary }} />
+                                  <Typography variant="body2">
+                                    {booking.slot?.date} at {booking.slot?.startTime}
                                   </Typography>
-                                  <Chip 
-                                    label={booking.status} 
-                                    size="small" 
-                                    color={
-                                      booking.status === 'accepted' ? 'success' : 
-                                      booking.status === 'pending' ? 'warning' : 'error'
-                                    }
-                                    sx={{ mt: 0.5 }}
-                                  />
                                 </Box>
-                              </Box>
-                              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                <Schedule sx={{ fontSize: 16, mr: 1, color: theme.palette.text.secondary }} />
-                                <Typography variant="body2">
-                                  {booking.slot?.date} at {booking.slot?.startTime}
-                                </Typography>
-                              </Box>
-                              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                <Psychology sx={{ fontSize: 16, mr: 1, color: theme.palette.text.secondary }} />
-                                <Typography variant="body2">
-                                  {booking.slot?.sessionType === 'video' ? 'Video Call' : 'Chat'}
-                                </Typography>
-                              </Box>
-                              {booking.status === 'pending' && (
-                                <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                                  <Button variant="contained" color="success" onClick={() => handleBookingAction(booking._id, 'accepted')}>Accept</Button>
-                                  <Button variant="outlined" color="error" onClick={() => handleBookingAction(booking._id, 'rejected')}>Reject</Button>
+                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                  <Psychology sx={{ fontSize: 16, mr: 1, color: theme.palette.text.secondary }} />
+                                  <Typography variant="body2">
+                                    {booking.slot?.sessionType === 'video' ? 'Video Call' : 'Chat'}
+                                  </Typography>
                                 </Box>
-                              )}
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
+                                {booking.status === 'pending' && (
+                                  <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                                    <Button variant="contained" color="success" onClick={() => handleBookingAction(booking._id, 'accepted')}>Accept</Button>
+                                    <Button variant="outlined" color="error" onClick={() => handleBookingAction(booking._id, 'rejected')}>Reject</Button>
+                                  </Box>
+                                )}
+                                {booking.status === 'accepted' && new Date(booking.slot?.date + 'T' + booking.slot?.endTime) > new Date() && (
+                                  <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                                    <Button variant="contained" color="info" onClick={() => handleMarkCompleted(booking._id)}>
+                                      Mark as Completed
+                                    </Button>
+                                  </Box>
+                                )}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
                     </Box>
                   )}
                 </Paper>

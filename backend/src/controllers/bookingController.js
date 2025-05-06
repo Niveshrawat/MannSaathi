@@ -42,7 +42,24 @@ exports.getMyBookings = async (req, res) => {
 // Get bookings for logged-in counselor
 exports.getCounselorBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find({ counselor: req.user.id })
+    let bookings = await Booking.find({ counselor: req.user.id })
+      .populate('slot')
+      .populate('user', 'name email profilePicture');
+    // Auto-complete sessions if end time has passed
+    const now = new Date();
+    for (const booking of bookings) {
+      if (
+        booking.status === 'accepted' &&
+        booking.slot &&
+        booking.slot.endTime &&
+        new Date(booking.slot.date + 'T' + booking.slot.endTime) < now
+      ) {
+        booking.status = 'completed';
+        await booking.save();
+      }
+    }
+    // Refetch to get updated statuses
+    bookings = await Booking.find({ counselor: req.user.id })
       .populate('slot')
       .populate('user', 'name email profilePicture');
     res.json({ success: true, bookings });
