@@ -103,4 +103,24 @@ exports.updateBookingStatus = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
+};
+
+// Counselor or system: mark booking as completed
+exports.markBookingCompleted = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+    // Only counselor or system can mark as completed
+    if (booking.counselor.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+    booking.status = 'completed';
+    await booking.save();
+    res.json({ success: true, booking });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 }; 

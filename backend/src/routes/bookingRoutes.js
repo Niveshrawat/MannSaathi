@@ -13,5 +13,7 @@ router.get('/my', bookingController.getMyBookings);
 router.get('/counselor', bookingController.getCounselorBookings);
 // Counselor: update booking status (accept/reject/cancel)
 router.put('/:id/status', bookingController.updateBookingStatus);
+// Mark booking as completed
+router.put('/:id/complete', bookingController.markBookingCompleted);
 
 module.exports = router; 

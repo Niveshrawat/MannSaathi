@@ -160,6 +160,11 @@ const CounselorDashboard = () => {
     return stars;
   };
 
+  // Calculate active and completed sessions
+  const now = new Date();
+  const activeSessions = bookings.filter(b => b.status === 'accepted' && new Date(b.slot?.date + 'T' + b.slot?.startTime) > now);
+  const completedSessions = bookings.filter(b => b.status === 'completed');
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
@@ -298,7 +303,7 @@ const CounselorDashboard = () => {
                       <Typography variant="h6" fontWeight="bold">Active Sessions</Typography>
                     </Box>
                     <Typography variant="h3" fontWeight="bold" color="success.main">
-                      {appointments.length}
+                      {activeSessions.length}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                       Scheduled appointments
@@ -380,6 +385,34 @@ const CounselorDashboard = () => {
                     <Box sx={{ display: 'flex', mt: 1 }}>
                       {renderStars(profile?.rating || 0)}
                     </Box>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={itemVariants} style={{ flex: '1 1 200px' }}>
+                <Card 
+                  elevation={3}
+                  sx={{ 
+                    borderRadius: 2,
+                    height: '100%',
+                    transition: 'transform 0.3s, box-shadow 0.3s',
+                    '&:hover': {
+                      transform: 'translateY(-5px)',
+                      boxShadow: theme.shadows[10]
+                    }
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <CheckCircle sx={{ color: theme.palette.info.main, fontSize: 28, mr: 2 }} />
+                      <Typography variant="h6" fontWeight="bold">Completed Sessions</Typography>
+                    </Box>
+                    <Typography variant="h3" fontWeight="bold" color="info.main">
+                      {completedSessions.length}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      Sessions completed
+                    </Typography>
                   </CardContent>
                 </Card>
               </motion.div>
