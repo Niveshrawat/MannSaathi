@@ -35,8 +35,9 @@ const Login = () => {
         try {
             const response = await authAPI.login(formData);
             if (response.data) {
+                const user = { ...response.data.user, _id: response.data.user.id };
                 localStorage.setItem('token', response.data.token);
-                localStorage.setItem('user', JSON.stringify(response.data.user));
+                localStorage.setItem('user', JSON.stringify(user));
                 navigate('/dashboard');
             }
         } catch (err) {

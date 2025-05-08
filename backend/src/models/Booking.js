@@ -28,6 +28,15 @@ const bookingSchema = new mongoose.Schema({
   },
   notes: {
     type: String
+  },
+  type: {
+    type: String,
+    enum: ['chat', 'audio'],
+    required: true
+  },
+  sessionId: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true

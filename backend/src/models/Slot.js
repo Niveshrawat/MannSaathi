@@ -20,12 +20,13 @@ const slotSchema = new mongoose.Schema({
   },
   sessionType: {
     type: String,
-    enum: ['video', 'chat'],
-    default: 'video'
+    enum: ['audio', 'chat'],
+    default: 'audio'
   },
-  price: {
-    type: Number,
-    required: true
+  status: {
+    type: String,
+    enum: ['available', 'booked', 'completed', 'cancelled'],
+    default: 'available'
   },
   isBooked: {
     type: Boolean,
@@ -40,6 +41,10 @@ const slotSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Booking',
     default: null
+  },
+  price: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true

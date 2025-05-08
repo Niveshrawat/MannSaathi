@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/auth');
 const bookingController = require('../controllers/bookingController');
+const Session = require('../models/Session');
 
 router.use(protect);
 
@@ -15,5 +16,18 @@ router.get('/counselor', bookingController.getCounselorBookings);
 router.put('/:id/status', bookingController.updateBookingStatus);
 // Mark booking as completed
 router.put('/:id/complete', bookingController.markBookingCompleted);
+
+// Fetch session by booking id
+router.get('/session/byBooking/:bookingId', async (req, res) => {
+  try {
+    const session = await Session.findOne({ booking: req.params.bookingId })
+      .populate('user', 'name profilePicture')
+      .populate('counselor', 'name profilePicture');
+    if (!session) return res.status(404).json({ message: 'Session not found' });
+    res.json(session);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching session' });
+  }
+});
 
 module.exports = router; 

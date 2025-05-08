@@ -8,6 +8,7 @@ import {
 } from '@mui/material';
 import VideoSession from './VideoSession';
 import ChatSession from './ChatSession';
+import { getSessionByBookingId } from '../../services/api';
 
 const SessionPage = () => {
   const location = useLocation();
@@ -16,59 +17,23 @@ const SessionPage = () => {
   const [sessionData, setSessionData] = useState(null);
 
   useEffect(() => {
-    const sessionId = new URLSearchParams(location.search).get('id');
-    
-    // Simulate loading
-    setTimeout(() => {
-      // Mock session data based on the session ID
-      const mockSessions = {
-        3: {
-          id: 3,
-          type: 'video',
-          counselor: {
-            name: "Dr. Sarah Johnson",
-            specialization: "Anxiety & Depression",
-            rating: 4.8,
-            image: "https://randomuser.me/api/portraits/women/1.jpg"
-          },
-          date: "2024-03-20",
-          time: "10:00 AM",
-          duration: 60
-        },
-        4: {
-          id: 4,
-          type: 'chat',
-          counselor: {
-            name: "Dr. Michael Chen",
-            specialization: "Stress Management",
-            rating: 4.9,
-            image: "https://randomuser.me/api/portraits/men/2.jpg"
-          },
-          date: "2024-03-22",
-          time: "2:30 PM",
-          duration: 45
-        },
-        5: {
-          id: 5,
-          type: 'video',
-          counselor: {
-            name: "Dr. Emily Brown",
-            specialization: "Relationship Counseling",
-            rating: 4.7,
-            image: "https://randomuser.me/api/portraits/women/3.jpg"
-          },
-          date: "2024-03-25",
-          time: "11:00 AM",
-          duration: 60
-        }
-      };
-      
-      const session = mockSessions[sessionId];
-      if (session) {
-        setSessionData(session);
-      }
+    const bookingId = new URLSearchParams(location.search).get('id');
+    if (!bookingId) {
       setLoading(false);
-    }, 1000);
+      setSessionData(null);
+      return;
+    }
+    setLoading(true);
+    getSessionByBookingId(bookingId)
+      .then((session) => {
+        setSessionData(session);
+      })
+      .catch(() => {
+        setSessionData(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [location]);
 
   if (loading) {

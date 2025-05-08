@@ -12,19 +12,37 @@ import {
 } from '@mui/material';
 import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import MicNoneOutlinedIcon from '@mui/icons-material/MicNoneOutlined';
+import io from 'socket.io-client';
 
-const ChatInterface = ({ chatMode, onSwitchToHuman }) => {
+const ChatInterface = ({ chatMode, onSwitchToHuman, bookingId, token }) => {
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      text: "Hello! I'm Manas Sathi, your mental wellness companion. How are you feeling today?",
-      sender: 'counselor',
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState([]);
+  const [socket, setSocket] = useState(null);
+  const [connected, setConnected] = useState(false);
+  const [error, setError] = useState('');
 
   const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    if (!bookingId || !token) return;
+    const newSocket = io('http://localhost:5000'); // Update if backend URL is different
+    setSocket(newSocket);
+    newSocket.emit('joinRoom', { token, bookingId }, (res) => {
+      if (res.success) {
+        setConnected(true);
+        setError('');
+      } else {
+        setConnected(false);
+        setError(res.message || 'Unable to join chat');
+      }
+    });
+    newSocket.on('chatMessage', (msg) => {
+      setMessages((prev) => [...prev, msg]);
+    });
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [bookingId, token]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -35,30 +53,21 @@ const ChatInterface = ({ chatMode, onSwitchToHuman }) => {
   }, [messages]);
 
   const handleSendMessage = () => {
-    if (!message.trim()) return;
-
-    const newMessage = {
-      id: messages.length + 1,
-      text: message,
-      sender: 'user',
-      timestamp: new Date()
+    if (!message.trim() || !socket || !connected) return;
+    const msgObj = {
+      bookingId,
+      message
     };
-
-    setMessages([...messages, newMessage]);
+    socket.emit('chatMessage', msgObj);
+    setMessages((prev) => [
+      ...prev,
+      {
+        userId: 'me',
+        message,
+        timestamp: new Date().toISOString()
+      }
+    ]);
     setMessage('');
-
-    // Simulate counselor response
-    setTimeout(() => {
-      const response = {
-        id: messages.length + 2,
-        text: chatMode === 'ai'
-          ? "I understand. Could you tell me more about how you're feeling?"
-          : "Thank you for sharing that. How does this situation make you feel?",
-        sender: 'counselor',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, response]);
-    }, 1000);
   };
 
   const handleKeyPress = (event) => {

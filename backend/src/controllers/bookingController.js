@@ -1,6 +1,7 @@
 const Booking = require('../models/Booking');
 const Slot = require('../models/Slot');
 const sendEmail = require('../../utils/sendEmail');
+const Session = require('../models/Session');
 
 // User books a slot
 exports.createBooking = async (req, res) => {
@@ -10,17 +11,49 @@ exports.createBooking = async (req, res) => {
     if (!slot || slot.isBooked) {
       return res.status(400).json({ success: false, message: 'Slot not available' });
     }
+    // 1. Check if user already has 3 bookings for that day (pending/accepted)
+    const userBookingsForDay = await Booking.countDocuments({
+      user: req.user.id,
+      status: { $in: ['pending', 'accepted'] },
+      // Populate slot to check date
+    }).populate({
+      path: 'slot',
+      match: { date: slot.date }
+    });
+    if (userBookingsForDay >= 3) {
+      return res.status(400).json({ success: false, message: 'You can only book up to 3 slots per day.' });
+    }
+    // 2. Check for overlapping bookings (same date, overlapping time)
+    const userBookings = await Booking.find({
+      user: req.user.id,
+      status: { $in: ['pending', 'accepted'] }
+    }).populate('slot');
+    const isOverlap = userBookings.some(b =>
+      b.slot &&
+      b.slot.date === slot.date &&
+      ((slot.startTime >= b.slot.startTime && slot.startTime < b.slot.endTime) ||
+       (slot.endTime > b.slot.startTime && slot.endTime <= b.slot.endTime) ||
+       (slot.startTime <= b.slot.startTime && slot.endTime >= b.slot.endTime))
+    );
+    if (isOverlap) {
+      return res.status(400).json({ success: false, message: 'You have an overlapping booking.' });
+    }
     // Mark slot as booked
     slot.isBooked = true;
     slot.bookedBy = req.user.id;
+    slot.status = 'booked';
     await slot.save();
     // Create booking
     const booking = await Booking.create({
       user: req.user.id,
       counselor: slot.counselor,
       slot: slot._id,
-      notes
+      notes,
+      type: slot.sessionType
     });
+    // Update slot with bookingId
+    slot.bookingId = booking._id;
+    await slot.save();
     res.status(201).json({ success: true, booking });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -84,6 +117,22 @@ exports.updateBookingStatus = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
     booking.status = status;
+    if (status === 'accepted' && !booking.sessionId) {
+      booking.sessionId = booking._id.toString();
+      // Create a session document
+      await Session.create({
+        booking: booking._id,
+        appointment: booking.slot,
+        user: booking.user,
+        counselor: booking.counselor,
+        type: booking.type,
+        status: 'scheduled',
+        startTime: null,
+        endTime: null,
+        messages: [],
+        notes: ''
+      });
+    }
     if (status === 'rejected' && reason) {
       booking.rejectionReason = reason;
     }

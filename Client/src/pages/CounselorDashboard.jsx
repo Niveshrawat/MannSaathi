@@ -543,7 +543,11 @@ const CounselorDashboard = () => {
                       {bookings
                         .filter(b => b.status === 'pending' || b.status === 'accepted')
                         .map((booking) => {
-                          console.log('Booking status:', booking.status, booking);
+                          const now = new Date();
+                          const slotDate = booking.slot?.date;
+                          const start = slotDate ? new Date(`${slotDate}T${booking.slot?.startTime}`) : null;
+                          const end = slotDate ? new Date(`${slotDate}T${booking.slot?.endTime}`) : null;
+                          const canJoin = booking.status === 'accepted' && start && end && now >= start && now <= end && booking.slot?.sessionType === 'chat';
                           return (
                             <Card 
                               key={booking._id} 
@@ -589,7 +593,7 @@ const CounselorDashboard = () => {
                                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                                   <Psychology sx={{ fontSize: 16, mr: 1, color: theme.palette.text.secondary }} />
                                   <Typography variant="body2">
-                                    {booking.slot?.sessionType === 'video' ? 'Video Call' : 'Chat'}
+                                    {booking.slot?.sessionType === 'audio' ? 'Audio' : 'Chat'}
                                   </Typography>
                                 </Box>
                                 {booking.status === 'pending' && (
@@ -598,12 +602,25 @@ const CounselorDashboard = () => {
                                     <Button variant="outlined" color="error" onClick={() => handleBookingAction(booking._id, 'rejected')}>Reject</Button>
                                   </Box>
                                 )}
-                                {booking.status === 'accepted' && new Date(booking.slot?.date + 'T' + booking.slot?.endTime) > new Date() && (
-                                  <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                                    <Button variant="contained" color="info" onClick={() => handleMarkCompleted(booking._id)}>
-                                      Mark as Completed
-                                    </Button>
-                                  </Box>
+                                {canJoin && (
+                                  <Button
+                                    variant="contained"
+                                    color="primary"
+                                    sx={{ mt: 2 }}
+                                    onClick={() => navigate('/session?id=' + booking._id)}
+                                  >
+                                    Join Session
+                                  </Button>
+                                )}
+                                {booking.status === 'accepted' && !canJoin && (
+                                  <Button
+                                    variant="outlined"
+                                    color="primary"
+                                    sx={{ mt: 2 }}
+                                    onClick={() => navigate('/session?id=' + booking._id)}
+                                  >
+                                    View Details
+                                  </Button>
                                 )}
                               </CardContent>
                             </Card>

@@ -52,6 +52,11 @@ const sessionSchema = new mongoose.Schema({
   notes: {
     type: String
   },
+  booking: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Booking',
+    required: true
+  },
   createdAt: {
     type: Date,
     default: Date.now

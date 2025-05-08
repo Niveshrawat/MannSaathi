@@ -257,4 +257,13 @@ export const updateBookingStatus = async (bookingId, status) => {
     }
 };
 
+export const getSessionByBookingId = async (bookingId) => {
+    try {
+        const response = await api.get(`/bookings/session/byBooking/${bookingId}`);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Session not found' };
+    }
+};
+
 export default api; 

@@ -18,32 +18,47 @@ import {
   EmojiEmotions,
   MoreVert,
 } from '@mui/icons-material';
+import io from 'socket.io-client';
 
 const ChatSession = ({ sessionData }) => {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: "Dr. Sarah Johnson",
-      message: "Hello! How are you feeling today?",
-      timestamp: new Date().toISOString(),
-      isCounselor: true
-    },
-    {
-      id: 2,
-      sender: "You",
-      message: "I'm feeling a bit anxious today.",
-      timestamp: new Date().toISOString(),
-      isCounselor: false
-    }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [sessionTime, setSessionTime] = useState(0);
+  const socketRef = React.useRef(null);
+  const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+  const userId = userObj._id?.toString();
+  const counselorId = sessionData.counselor?._id?.toString() || sessionData.counselor?.toString();
+  const userIdFromSession = sessionData.user?._id?.toString() || sessionData.user?.toString();
+
+  const isCurrentUserCounselor = userId && counselorId && userId === counselorId;
+  const chatName = isCurrentUserCounselor ? sessionData.user.name : sessionData.counselor.name;
+  const chatAvatar = isCurrentUserCounselor ? sessionData.user.profilePicture : sessionData.counselor.profilePicture;
+  const token = localStorage.getItem('token');
+
+  useEffect(() => {
+    if (!sessionData?.booking) return;
+    const socket = io('http://localhost:5000');
+    socketRef.current = socket;
+    socket.emit('joinRoom', { token, bookingId: sessionData.booking }, (res) => {
+      if (res.success) {
+        // Joined successfully
+      }
+    });
+    socket.on('chatHistory', (history) => {
+      setMessages(history);
+    });
+    socket.on('chatMessage', (msg) => {
+      setMessages((prev) => [...prev, msg]);
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, [sessionData?.booking, token]);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setSessionTime(prev => prev + 1);
     }, 1000);
-
     return () => clearInterval(timer);
   }, []);
 
@@ -54,14 +69,11 @@ const ChatSession = ({ sessionData }) => {
   };
 
   const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      setMessages(prev => [...prev, {
-        id: prev.length + 1,
-        sender: "You",
-        message: newMessage,
-        timestamp: new Date().toISOString(),
-        isCounselor: false
-      }]);
+    if (newMessage.trim() && socketRef.current) {
+      socketRef.current.emit('chatMessage', {
+        bookingId: sessionData.booking,
+        message: newMessage
+      });
       setNewMessage("");
     }
   };
@@ -81,14 +93,11 @@ const ChatSession = ({ sessionData }) => {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Avatar
-            src="https://randomuser.me/api/portraits/women/1.jpg"
+            src={chatAvatar}
             sx={{ width: 48, height: 48 }}
           />
           <Box>
-            <Typography variant="h6">Dr. Sarah Johnson</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Anxiety & Depression Specialist
-            </Typography>
+            <Typography variant="h6">{chatName}</Typography>
           </Box>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -113,61 +122,43 @@ const ChatSession = ({ sessionData }) => {
         }}
       >
         <List>
-          {messages.map((msg, index) => (
-            <ListItem
-              key={msg.id}
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: msg.isCounselor ? 'flex-start' : 'flex-end',
-                gap: 0.5,
-                mb: 2
-              }}
-            >
-              {(index === 0 || new Date(msg.timestamp).toDateString() !== new Date(messages[index - 1].timestamp).toDateString()) && (
-                <Chip
-                  label={new Date(msg.timestamp).toLocaleDateString()}
-                  size="small"
-                  sx={{ mb: 2 }}
-                />
-              )}
-              <Box
+          {messages.map((msg, index) => {
+            const isMe = msg.sender === userId;
+            return (
+              <ListItem
+                key={index}
                 sx={{
                   display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 1,
-                  flexDirection: msg.isCounselor ? 'row' : 'row-reverse'
+                  flexDirection: isMe ? 'row-reverse' : 'row',
+                  alignItems: 'flex-end',
+                  mb: 1
                 }}
               >
-                <Avatar
-                  src={msg.isCounselor ? "https://randomuser.me/api/portraits/women/1.jpg" : undefined}
-                  sx={{ width: 32, height: 32 }}
-                >
-                  {!msg.isCounselor && "Y"}
-                </Avatar>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    {msg.sender}
-                  </Typography>
                   <Paper
-                    elevation={0}
                     sx={{
                       p: 1.5,
-                      bgcolor: msg.isCounselor ? 'grey.100' : 'primary.main',
-                      color: msg.isCounselor ? 'text.primary' : 'white',
+                      bgcolor: isMe ? 'primary.main' : 'grey.100',
+                      color: isMe ? 'white' : 'text.primary',
                       borderRadius: 2,
-                      maxWidth: '80%'
+                      maxWidth: 350,
+                      minWidth: 60,
+                      textAlign: isMe ? 'right' : 'left'
                     }}
                   >
-                    <Typography>{msg.message}</Typography>
+                    <Typography>
+                      {msg.message || msg.text || msg.content || '[No message]'}
+                    </Typography>
                   </Paper>
                   <Typography variant="caption" color="text.secondary">
-                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {msg.timestamp
+                      ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : ''}
                   </Typography>
                 </Box>
-              </Box>
-            </ListItem>
-          ))}
+              </ListItem>
+            );
+          })}
         </List>
       </Box>
 

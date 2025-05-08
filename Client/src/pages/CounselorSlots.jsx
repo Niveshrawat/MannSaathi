@@ -9,7 +9,7 @@ const defaultForm = {
   date: '',
   startTime: '',
   endTime: '',
-  sessionType: 'video',
+  sessionType: 'audio',
   price: ''
 };
 
@@ -44,7 +44,7 @@ const CounselorSlots = () => {
         startTime: slot.startTime,
         endTime: slot.endTime,
         sessionType: slot.sessionType,
-        price: slot.price
+        price: slot.price || ''
       });
       setEditId(slot._id);
     } else {
@@ -120,7 +120,7 @@ const CounselorSlots = () => {
                   <TableCell>{slot.date}</TableCell>
                   <TableCell>{slot.startTime}</TableCell>
                   <TableCell>{slot.endTime}</TableCell>
-                  <TableCell>{slot.sessionType}</TableCell>
+                  <TableCell>{slot.sessionType === 'audio' ? 'Audio' : 'Chat'}</TableCell>
                   <TableCell>{slot.price}</TableCell>
                   <TableCell>{slot.isBooked ? 'Booked' : 'Available'}</TableCell>
                   <TableCell>
@@ -144,7 +144,7 @@ const CounselorSlots = () => {
           <TextField label="Start Time" name="startTime" type="time" value={form.startTime} onChange={handleChange} InputLabelProps={{ shrink: true }} fullWidth />
           <TextField label="End Time" name="endTime" type="time" value={form.endTime} onChange={handleChange} InputLabelProps={{ shrink: true }} fullWidth />
           <Select label="Session Type" name="sessionType" value={form.sessionType} onChange={handleChange} fullWidth>
-            <MenuItem value="video">Video</MenuItem>
+            <MenuItem value="audio">Audio</MenuItem>
             <MenuItem value="chat">Chat</MenuItem>
           </Select>
           <TextField label="Price" name="price" type="number" value={form.price} onChange={handleChange} fullWidth />
