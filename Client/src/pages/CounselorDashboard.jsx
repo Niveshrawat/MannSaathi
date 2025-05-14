@@ -84,6 +84,7 @@ const CounselorDashboard = () => {
   const [bookings, setBookings] = useState([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [bookingsError, setBookingsError] = useState(null);
+  const [completedBookings, setCompletedBookings] = useState([]);
   const theme = useTheme();
   const navigate = useNavigate();
 
@@ -119,7 +120,8 @@ const CounselorDashboard = () => {
       try {
         setBookingsLoading(true);
         const response = await getCounselorBookings();
-        setBookings(response.bookings); // Store all bookings
+        setBookings(response.bookings);
+        setCompletedBookings(response.bookings.filter(b => b.status === 'completed' && b.feedback));
         setBookingsError(null);
       } catch (err) {
         setBookingsError('Failed to load upcoming appointments.');
@@ -174,6 +176,12 @@ const CounselorDashboard = () => {
   const now = new Date();
   const activeSessions = bookings.filter(b => b.status === 'accepted' && new Date(b.slot?.date + 'T' + b.slot?.startTime) > now);
   const completedSessions = bookings.filter(b => b.status === 'completed');
+
+  // Calculate overall average rating for this counselor
+  const feedbacks = bookings.filter(b => b.status === 'completed' && b.feedback && b.feedback.rating);
+  const averageRating = feedbacks.length
+    ? (feedbacks.reduce((sum, b) => sum + b.feedback.rating, 0) / feedbacks.length).toFixed(2)
+    : 0;
 
   if (loading) {
     return (
@@ -245,6 +253,19 @@ const CounselorDashboard = () => {
                 />
               </Paper>
             </motion.div>
+
+            {/* Overall Rating Section */}
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h6" fontWeight="bold" sx={{ mr: 1 }}>
+                Your Overall Rating:
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                {renderStars(Number(averageRating))}
+                <Typography sx={{ ml: 1 }}>
+                  {averageRating}/5
+                </Typography>
+              </Box>
+            </Box>
 
             {/* Stats Cards */}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 4 }}>
@@ -388,12 +409,12 @@ const CounselorDashboard = () => {
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <Typography variant="h3" fontWeight="bold" color="warning.main">
-                        {profile?.rating || 0}
+                        {averageRating}
                       </Typography>
                       <Typography variant="h6" color="text.secondary" sx={{ ml: 1 }}>/5</Typography>
                     </Box>
                     <Box sx={{ display: 'flex', mt: 1 }}>
-                      {renderStars(profile?.rating || 0)}
+                      {renderStars(Number(averageRating))}
                     </Box>
                   </CardContent>
                 </Card>
@@ -626,6 +647,77 @@ const CounselorDashboard = () => {
                             </Card>
                           );
                         })}
+                    </Box>
+                  )}
+                </Paper>
+              </motion.div>
+
+              {/* Client Feedback Section */}
+              <motion.div variants={itemVariants} style={{ flex: '1 1 30%', minWidth: '250px' }}>
+                <Paper 
+                  elevation={3}
+                  sx={{ 
+                    p: 3, 
+                    borderRadius: 2,
+                    height: '100%'
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="h6" fontWeight="bold">
+                      Client Feedback
+                    </Typography>
+                    <Badge badgeContent={completedBookings.length} color="primary">
+                      <Star color="primary" />
+                    </Badge>
+                  </Box>
+                  {completedBookings.length === 0 ? (
+                    <Typography>No feedback received yet.</Typography>
+                  ) : (
+                    <Box>
+                      {completedBookings.map((booking) => (
+                        <Card 
+                          key={booking._id} 
+                          sx={{ 
+                            mb: 2, 
+                            borderRadius: 2,
+                            transition: 'transform 0.2s, box-shadow 0.2s',
+                            '&:hover': {
+                              transform: 'translateX(5px)',
+                              boxShadow: theme.shadows[3]
+                            }
+                          }}
+                        >
+                          <CardContent sx={{ p: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                              <Avatar 
+                                src={booking.user?.profilePicture} 
+                                sx={{ mr: 2, bgcolor: theme.palette.primary.main }}
+                              >
+                                {booking.user?.name?.charAt(0) || 'C'}
+                              </Avatar>
+                              <Box>
+                                <Typography variant="subtitle1" fontWeight="bold">
+                                  {booking.user?.name || 'Client'}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {booking.slot?.date} at {booking.slot?.startTime}
+                                </Typography>
+                              </Box>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                              {renderStars(booking.feedback.rating)}
+                              <Typography variant="body2" sx={{ ml: 1 }}>
+                                {booking.feedback.rating}/5
+                              </Typography>
+                            </Box>
+                            {booking.feedback.comment && (
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                "{booking.feedback.comment}"
+                              </Typography>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
                     </Box>
                   )}
                 </Paper>

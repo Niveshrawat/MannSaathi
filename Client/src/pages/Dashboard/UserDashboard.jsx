@@ -40,6 +40,9 @@ import {
   AccessTime,
   Person,
   Psychology,
+  Star,
+  StarHalf,
+  StarBorder,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -66,6 +69,7 @@ const UserDashboard = () => {
   const theme = useTheme();
   const isSm = useMediaQuery(theme.breakpoints.down('sm'));
   const [bookings, setBookings] = useState([]);
+  const [completedBookings, setCompletedBookings] = useState([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [bookingsError, setBookingsError] = useState(null);
 
@@ -194,6 +198,7 @@ const UserDashboard = () => {
         setBookingsLoading(true);
         const response = await getMyBookings();
         setBookings(response.bookings.filter(b => b.status === 'pending' || b.status === 'accepted'));
+        setCompletedBookings(response.bookings.filter(b => b.status === 'completed'));
         setBookingsError(null);
       } catch (err) {
         setBookingsError('Failed to load upcoming sessions.');
@@ -203,6 +208,28 @@ const UserDashboard = () => {
     };
     fetchBookings();
   }, []);
+
+  // Function to render stars based on rating
+  const renderStars = (rating) => {
+    const stars = [];
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 !== 0;
+    
+    for (let i = 0; i < fullStars; i++) {
+      stars.push(<Star key={`star-${i}`} sx={{ color: 'warning.main' }} />);
+    }
+    
+    if (hasHalfStar) {
+      stars.push(<StarHalf key="half-star" sx={{ color: 'warning.main' }} />);
+    }
+    
+    const emptyStars = 5 - stars.length;
+    for (let i = 0; i < emptyStars; i++) {
+      stars.push(<StarBorder key={`empty-star-${i}`} sx={{ color: 'warning.main' }} />);
+    }
+    
+    return stars;
+  };
 
   const DashboardInsights = ({ user }) => {
     // Calculate mood distribution
@@ -674,6 +701,75 @@ const UserDashboard = () => {
             </Paper>
           </Box>
         </Box>
+
+        {/* Completed Sessions with Feedback */}
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            p: 3, 
+            borderRadius: 3,
+            mb: 3,
+            background: 'linear-gradient(135deg, #ffffff 0%, #F0F5FD 100%)',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <Assessment sx={{ mr: 1, color: 'primary.main' }} />
+            <Typography variant="h6" fontWeight="bold">
+              Completed Sessions
+            </Typography>
+          </Box>
+          {completedBookings.length === 0 ? (
+            <Typography>No completed sessions yet.</Typography>
+          ) : (
+            <List>
+              {completedBookings.map((booking) => (
+                <ListItem 
+                  key={booking._id}
+                  sx={{ 
+                    bgcolor: '#ffffff',
+                    borderRadius: 2,
+                    mb: 1,
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
+                  }}
+                >
+                  <ListItemAvatar>
+                    <Avatar src={booking.counselor?.profilePicture || ''} />
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={booking.counselor?.name}
+                    secondary={
+                      <Box>
+                        <Typography variant="body2">
+                          {booking.slot?.date} at {booking.slot?.startTime}
+                        </Typography>
+                        {booking.feedback ? (
+                          <Box sx={{ mt: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              {renderStars(booking.feedback.rating)}
+                              <Typography variant="body2" sx={{ ml: 1 }}>
+                                {booking.feedback.rating}/5
+                              </Typography>
+                            </Box>
+                            {booking.feedback.comment && (
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                "{booking.feedback.comment}"
+                              </Typography>
+                            )}
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            No feedback provided
+                          </Typography>
+                        )}
+                      </Box>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </Paper>
       </Container>
 
       {/* Upcoming Sessions Dialog */}

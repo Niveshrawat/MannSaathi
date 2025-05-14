@@ -37,6 +37,10 @@ const bookingSchema = new mongoose.Schema({
   sessionId: {
     type: String,
     default: null
+  },
+  feedback: {
+    rating: { type: Number, min: 1, max: 5 },
+    comment: { type: String }
   }
 }, {
   timestamps: true
