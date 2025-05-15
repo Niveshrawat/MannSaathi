@@ -861,7 +861,6 @@ const UserDashboard = () => {
                   </TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Feedback</TableCell>
-                  <TableCell>Transcript</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -902,24 +901,6 @@ const UserDashboard = () => {
                         ) : (
                           <Typography variant="body2" color="text.secondary">
                             No feedback
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {booking.transcriptUrl ? (
-                          <Tooltip title="Download Transcript">
-                            <IconButton
-                              size="small"
-                              href={booking.transcriptUrl}
-                              target="_blank"
-                              color="primary"
-                            >
-                              <Download />
-                            </IconButton>
-                          </Tooltip>
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            Not available
                           </Typography>
                         )}
                       </TableCell>
