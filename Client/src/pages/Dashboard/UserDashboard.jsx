@@ -24,6 +24,14 @@ import {
   ListItemIcon,
   useTheme,
   useMediaQuery,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper as MuiTablePaper,
+  Tooltip,
 } from '@mui/material';
 import {
   VideoCall,
@@ -43,6 +51,7 @@ import {
   Star,
   StarHalf,
   StarBorder,
+  Download,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -51,7 +60,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -326,6 +334,26 @@ const UserDashboard = () => {
     );
   };
 
+  // Helper to get session status and color
+  const getSessionStatus = (booking) => {
+    const now = new Date();
+    const slotDate = booking.slot?.date;
+    const start = slotDate ? new Date(`${slotDate}T${booking.slot?.startTime}`) : null;
+    const end = slotDate ? new Date(`${slotDate}T${booking.slot?.endTime}`) : null;
+    if (booking.status === 'completed') return { label: 'Completed', color: 'success' };
+    if (booking.status === 'cancelled' || booking.status === 'rejected') return { label: 'Cancelled', color: 'error' };
+    if (start && end && now >= start && now <= end && (booking.status === 'accepted' || booking.status === 'pending')) return { label: 'Active', color: 'info' };
+    if (start && now < start && (booking.status === 'accepted' || booking.status === 'pending')) return { label: 'Scheduled', color: 'primary' };
+    if (start && now > end && booking.status !== 'completed' && booking.status !== 'cancelled' && booking.status !== 'rejected') return { label: 'Missed', color: 'warning' };
+    return { label: booking.status, color: 'default' };
+  };
+
+  // Helper to get session end time
+  const getSessionEnd = (booking) => {
+    const slotDate = booking.slot?.date;
+    return slotDate ? new Date(`${slotDate}T${booking.slot?.endTime}`) : null;
+  };
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#F0F5FD' }}>
       <Navbar />
@@ -528,7 +556,39 @@ const UserDashboard = () => {
                         </ListItemAvatar>
                         <ListItemText
                           primary={booking.counselor?.name}
-                          secondary={`${booking.slot?.date} at ${booking.slot?.startTime}`}
+                          secondary={
+                            <Box>
+                              <Typography variant="body2">
+                                {booking.slot?.date} at {booking.slot?.startTime}
+                              </Typography>
+                              {/* Status Chip */}
+                              <Chip
+                                label={getSessionStatus(booking).label}
+                                color={getSessionStatus(booking).color}
+                                size="small"
+                                sx={{ mt: 0.5, mr: 1 }}
+                              />
+                              {booking.feedback ? (
+                                <Box sx={{ mt: 1 }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                    {renderStars(booking.feedback.rating)}
+                                    <Typography variant="body2" sx={{ ml: 1 }}>
+                                      {booking.feedback.rating}/5
+                                    </Typography>
+                                  </Box>
+                                  {booking.feedback.comment && (
+                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                      "{booking.feedback.comment}"
+                                    </Typography>
+                                  )}
+                                </Box>
+                              ) : (
+                                <Typography variant="body2" color="text.secondary">
+                                  No feedback provided
+                                </Typography>
+                              )}
+                            </Box>
+                          }
                         />
                         <Chip 
                           label={booking.slot?.sessionType === 'audio' ? 'Audio' : 'Chat'} 
@@ -769,6 +829,105 @@ const UserDashboard = () => {
               ))}
             </List>
           )}
+        </Paper>
+
+        {/* Session History Section */}
+        <Paper
+          elevation={3}
+          sx={{
+            p: 3,
+            borderRadius: 4,
+            mb: 3,
+            background: 'linear-gradient(135deg, #F0F5FD 0%, #ffffff 100%)',
+            boxShadow: '0 8px 32px rgba(33, 150, 243, 0.08)'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <Schedule sx={{ mr: 1, color: 'primary.main' }} />
+            <Typography variant="h6" fontWeight="bold">
+              Session History
+            </Typography>
+          </Box>
+          <TableContainer sx={{ borderRadius: 2 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ background: 'linear-gradient(90deg, #e3f2fd 0%, #bbdefb 100%)' }}>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Time</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Person sx={{ fontSize: 18, mr: 0.5 }} /> Counselor
+                    </Box>
+                  </TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Feedback</TableCell>
+                  <TableCell>Transcript</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {completedBookings
+                  .filter(booking => booking.status === 'completed')
+                  .map((booking) => (
+                    <TableRow key={booking._id} hover>
+                      <TableCell>{booking.slot?.date}</TableCell>
+                      <TableCell>{booking.slot?.startTime} - {booking.slot?.endTime}</TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Avatar src={booking.counselor?.profilePicture} sx={{ width: 28, height: 28, mr: 1 }} />
+                          {booking.counselor?.name}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          icon={getSessionStatus(booking).label === 'Completed' ? <CheckCircle fontSize="small" /> : undefined}
+                          label={getSessionStatus(booking).label}
+                          color={getSessionStatus(booking).color}
+                          size="small"
+                          sx={{ borderRadius: 2, fontWeight: 500 }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {booking.feedback ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            {renderStars(booking.feedback.rating)}
+                            <Typography variant="body2" sx={{ ml: 1 }}>
+                              {booking.feedback.rating}/5
+                            </Typography>
+                            {booking.feedback.comment && (
+                              <Typography variant="body2" color="text.secondary" sx={{ ml: 1, fontStyle: 'italic' }}>
+                                “{booking.feedback.comment}”
+                              </Typography>
+                            )}
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            No feedback
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {booking.transcriptUrl ? (
+                          <Tooltip title="Download Transcript">
+                            <IconButton
+                              size="small"
+                              href={booking.transcriptUrl}
+                              target="_blank"
+                              color="primary"
+                            >
+                              <Download />
+                            </IconButton>
+                          </Tooltip>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            Not available
+                          </Typography>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </Paper>
       </Container>
 
