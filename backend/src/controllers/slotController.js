@@ -3,14 +3,15 @@ const Slot = require('../models/Slot');
 // Create a new slot (Counselor only)
 exports.createSlot = async (req, res) => {
   try {
-    const { date, startTime, endTime, sessionType, price } = req.body;
+    const { date, startTime, endTime, sessionType, price, extensionOptions } = req.body;
     const slot = await Slot.create({
       counselor: req.user.id,
       date,
       startTime,
       endTime,
       sessionType,
-      price
+      price,
+      extensionOptions: extensionOptions && Array.isArray(extensionOptions) ? extensionOptions : []
     });
     res.status(201).json({ success: true, slot });
   } catch (error) {

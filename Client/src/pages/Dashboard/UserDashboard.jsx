@@ -538,24 +538,24 @@ const UserDashboard = () => {
                     const end = slotDate ? new Date(`${slotDate}T${booking.slot?.endTime}`) : null;
                     const canJoin = booking.status === 'accepted' && start && end && now >= start && now <= end && booking.slot?.sessionType === 'chat';
                     return (
-                      <ListItem 
-                        key={booking._id} 
-                        sx={{ 
-                          bgcolor: '#ffffff',
-                          borderRadius: 2,
-                          mb: 1,
-                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-                          transition: 'transform 0.2s',
-                          '&:hover': {
-                            transform: 'translateX(4px)'
-                          }
-                        }}
-                      >
-                        <ListItemAvatar>
-                          <Avatar src={booking.counselor?.profilePicture || ''} />
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={booking.counselor?.name}
+                    <ListItem 
+                      key={booking._id} 
+                      sx={{ 
+                        bgcolor: '#ffffff',
+                        borderRadius: 2,
+                        mb: 1,
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+                        transition: 'transform 0.2s',
+                        '&:hover': {
+                          transform: 'translateX(4px)'
+                        }
+                      }}
+                    >
+                      <ListItemAvatar>
+                        <Avatar src={booking.counselor?.profilePicture || ''} />
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={booking.counselor?.name}
                           secondary={
                             <Box>
                               <Typography variant="body2">
@@ -589,13 +589,13 @@ const UserDashboard = () => {
                               )}
                             </Box>
                           }
-                        />
-                        <Chip 
+                      />
+                      <Chip 
                           label={booking.slot?.sessionType === 'audio' ? 'Audio' : 'Chat'} 
-                          color="primary" 
-                          size="small" 
-                          sx={{ mr: 1 }} 
-                        />
+                        color="primary" 
+                        size="small" 
+                        sx={{ mr: 1 }} 
+                      />
                         {canJoin ? (
                           <Button
                             variant="contained"
@@ -605,18 +605,18 @@ const UserDashboard = () => {
                             Join Session
                           </Button>
                         ) : (
-                          <IconButton 
-                            onClick={() => navigate('/session?id=' + booking._id)}
-                            sx={{
-                              '&:hover': {
-                                bgcolor: 'rgba(33, 150, 243, 0.08)'
-                              }
-                            }}
-                          >
-                            <NavigateNext />
-                          </IconButton>
+                      <IconButton 
+                        onClick={() => navigate('/session?id=' + booking._id)}
+                        sx={{
+                          '&:hover': {
+                            bgcolor: 'rgba(33, 150, 243, 0.08)'
+                          }
+                        }}
+                      >
+                        <NavigateNext />
+                      </IconButton>
                         )}
-                      </ListItem>
+                    </ListItem>
                     );
                   })}
                 </List>

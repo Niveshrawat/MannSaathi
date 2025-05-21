@@ -113,35 +113,61 @@ exports.updateBookingStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
     // Only counselor can update their own bookings
-    if (booking.counselor.toString() !== req.user.id) {
-      return res.status(403).json({ success: false, message: 'Not authorized' });
+    const counselorId = booking.counselor._id ? booking.counselor._id.toString() : booking.counselor.toString();
+    console.log('[DEBUG] Counselor update attempt:', {
+      bookingId: id,
+      bookingCounselor: counselorId,
+      reqUserId: req.user.id.toString(),
+      bookingStatus: booking.status,
+      bookingUser: booking.user && (booking.user._id ? booking.user._id.toString() : booking.user.toString())
+    });
+    if (counselorId !== req.user.id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized', debug: { bookingCounselor: counselorId, reqUserId: req.user.id.toString() } });
     }
+    // Update booking status
     booking.status = status;
+    // Try session creation if accepting
     if (status === 'accepted' && !booking.sessionId) {
-      booking.sessionId = booking._id.toString();
-      // Create a session document
-      await Session.create({
-        booking: booking._id,
-        appointment: booking.slot,
-        user: booking.user,
-        counselor: booking.counselor,
-        type: booking.type,
-        status: 'scheduled',
-        startTime: null,
-        endTime: null,
-        messages: [],
-        notes: ''
-      });
+      try {
+        booking.sessionId = booking._id.toString();
+        await Session.create({
+          booking: booking._id,
+          appointment: booking.slot,
+          user: booking.user,
+          counselor: booking.counselor,
+          type: booking.type,
+          status: 'scheduled',
+          startTime: null,
+          endTime: null,
+          messages: [],
+          notes: ''
+        });
+      } catch (sessionErr) {
+        console.error('[ERROR] Failed to create session:', sessionErr);
+        return res.status(500).json({ success: false, message: 'Failed to create session', error: sessionErr.message });
+      }
     }
+    // Try to set rejection reason
     if (status === 'rejected' && reason) {
       booking.rejectionReason = reason;
     }
-    await booking.save();
+    // Try booking save
+    try {
+      await booking.save();
+    } catch (bookingSaveErr) {
+      console.error('[ERROR] Failed to save booking:', bookingSaveErr);
+      return res.status(500).json({ success: false, message: 'Failed to save booking', error: bookingSaveErr.message });
+    }
     // If rejected, make slot available again
     if (status === 'rejected' && booking.slot) {
-      booking.slot.isBooked = false;
-      booking.slot.bookedBy = null;
-      await booking.slot.save();
+      try {
+        booking.slot.isBooked = false;
+        booking.slot.bookedBy = null;
+        await booking.slot.save();
+      } catch (slotSaveErr) {
+        console.error('[ERROR] Failed to update slot:', slotSaveErr);
+        return res.status(500).json({ success: false, message: 'Failed to update slot', error: slotSaveErr.message });
+      }
     }
     // Send email notification to user
     const userEmail = booking.user.email || '';
@@ -159,7 +185,8 @@ exports.updateBookingStatus = async (req, res) => {
         await sendEmail({ to: userEmail, subject, text, html });
         console.log('Rejection email sent to:', userEmail);
       } catch (e) {
-        console.error('Failed to send rejection email:', e);
+        console.error('[ERROR] Failed to send rejection email:', e);
+        // Do not fail the whole request if email fails
       }
     } else {
       console.log('No user email found, email not sent.');

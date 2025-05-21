@@ -45,7 +45,13 @@ const slotSchema = new mongoose.Schema({
   price: {
     type: Number,
     default: 0
-  }
+  },
+  extensionOptions: [
+    {
+      duration: { type: Number, required: true }, // in minutes
+      cost: { type: Number, required: true } // price for this extension
+    }
+  ]
 }, {
   timestamps: true
 });

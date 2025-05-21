@@ -13,6 +13,11 @@ import {
   Chip,
   Modal,
   Rating,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Alert,
 } from '@mui/material';
 import {
   Send,
@@ -22,6 +27,20 @@ import {
 } from '@mui/icons-material';
 import io from 'socket.io-client';
 import { toast } from 'react-hot-toast';
+
+const CounselorExtensionModal = ({ open, extensionRequestData, onAccept, onReject }) => {
+  if (!open || !extensionRequestData) return null;
+  return (
+    <Box>
+      <Typography variant="h6" gutterBottom>Extension Requested</Typography>
+      <Typography gutterBottom>
+        User requested to extend session by {extensionRequestData.extensionOption.duration} min (₹{extensionRequestData.extensionOption.cost})
+      </Typography>
+      <Button variant="contained" color="success" sx={{ m: 1 }} onClick={onAccept}>Accept</Button>
+      <Button variant="contained" color="error" sx={{ m: 1 }} onClick={onReject}>Reject</Button>
+    </Box>
+  );
+};
 
 const ChatSession = ({ sessionData }) => {
   const [messages, setMessages] = useState([]);
@@ -35,6 +54,18 @@ const ChatSession = ({ sessionData }) => {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [showExtensionModal, setShowExtensionModal] = useState(false);
+  const [selectedExtensionIdx, setSelectedExtensionIdx] = useState(null);
+  const [extensionRequest, setExtensionRequest] = useState(null);
+  const [extensionAccepted, setExtensionAccepted] = useState(false);
+  const [extensionPaymentPending, setExtensionPaymentPending] = useState(false);
+  const [extensionProcessing, setExtensionProcessing] = useState(false);
+  const [extensionStep, setExtensionStep] = useState('idle');
+  const [extensionRequestData, setExtensionRequestData] = useState(null);
+  const [extensionProcessingMsg, setExtensionProcessingMsg] = useState('');
+  const [extensionUsed, setExtensionUsed] = useState(false);
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
   const socketRef = React.useRef(null);
   const userObj = JSON.parse(localStorage.getItem('user') || '{}');
   const userId = userObj._id?.toString();
@@ -54,11 +85,22 @@ const ChatSession = ({ sessionData }) => {
       socketRef.current = io('http://localhost:5000');
     }
     const socket = socketRef.current;
-    socket.emit('joinRoom', { token, bookingId: sessionData.booking }, (res) => {
-      if (res.success) {
-        setTimeRemaining(res.timeRemaining);
-        if (res.sessionEndTimestamp) setSessionEndTime(res.sessionEndTimestamp);
-      }
+    const joinUserRoom = () => {
+      // Always join user, counselor, and chat rooms for real-time events
+      socket.emit('joinRoom', { token, bookingId: sessionData.booking }, (res) => {
+        console.log('joinRoom callback:', res);
+        if (res.success) {
+          setTimeRemaining(res.timeRemaining);
+          if (res.sessionEndTimestamp) setSessionEndTime(res.sessionEndTimestamp);
+        } else {
+          console.error('Failed to join room:', res.message);
+        }
+      });
+    };
+    joinUserRoom();
+    socket.on('reconnect', () => {
+      console.log('Socket reconnected, rejoining user room');
+      joinUserRoom();
     });
     socket.on('chatHistory', (history) => {
       setMessages(history);
@@ -82,6 +124,61 @@ const ChatSession = ({ sessionData }) => {
     socket.on('error', ({ message }) => {
       toast.error(message);
     });
+    socket.on('extensionRequested', (data) => {
+      console.log('extensionRequested received', data, 'isCurrentUserCounselor:', isCurrentUserCounselor, { userId, counselorId, userObj, sessionData });
+      // PATCH: Always show for counselor role
+      if (userObj.role === 'counselor' || isCurrentUserCounselor) {
+        setExtensionRequestData(data);
+        setExtensionStep('counselor');
+        console.log('DEBUG: setExtensionStep(counselor), setExtensionRequestData', data);
+      } else {
+        console.log('DEBUG: Not showing modal because not counselor.', {
+          userId,
+          counselorId,
+          userObj,
+          sessionData
+        });
+      }
+    });
+    socket.on('extensionAccepted', (data) => {
+      console.log('extensionAccepted received', data, 'isUser:', isUser);
+      if (isUser) {
+        const idx = sessionData.slot.extensionOptions.findIndex(opt => opt.duration === data.extensionOption.duration && opt.cost === data.extensionOption.cost);
+        console.log('DEBUG: setExtensionStep(payment), setSelectedExtensionIdx', idx, 'SHOWING PAYMENT MODAL', data, sessionData.slot.extensionOptions);
+        setExtensionStep('payment');
+        setSelectedExtensionIdx(idx);
+        toast.success('Counselor accepted extension. Please proceed with payment.');
+      }
+      if (!isUser) {
+        setExtensionStep('idle');
+      }
+    });
+    socket.on('extensionRejected', (data) => {
+      if (isUser) {
+        toast.error('Counselor rejected the extension request.');
+        setExtensionStep('idle');
+        setSelectedExtensionIdx(null);
+      }
+      setExtensionRequestData(null);
+    });
+    socket.on('extensionCompleted', (data) => {
+      setExtensionUsed(true);
+      // Update timer and close all modals for both user and counselor
+      setExtensionStep('done');
+      setExtensionRequestData(null);
+      setSelectedExtensionIdx(null);
+      if (data.newEndTime) {
+        setSessionEndTime(new Date(data.newEndTime).getTime());
+        setTimeLeft(Math.max(0, Math.floor((new Date(data.newEndTime).getTime() - Date.now()) / 1000)));
+        console.log('DEBUG: extensionCompleted received, session time updated for', isUser ? 'user' : 'counselor', 'newEndTime:', data.newEndTime);
+        toast.success('Session extended!');
+      }
+      setTimeout(() => setExtensionStep('idle'), 1500);
+    });
+    // TEST: Listen for testCounselorEvent
+    socket.on('testCounselorEvent', (data) => {
+      console.log('testCounselorEvent received:', data);
+    });
     return () => {
       socket.disconnect();
       socketRef.current = null;
@@ -100,7 +197,7 @@ const ChatSession = ({ sessionData }) => {
         const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
         audio.play().catch(err => console.log('Audio play failed:', err));
         // Show toast notification
-        toast.info('Session time has ended', {
+        toast('Session time has ended', {
           icon: '⏰',
           duration: 5000
         });
@@ -155,6 +252,100 @@ const ChatSession = ({ sessionData }) => {
     return () => clearInterval(interval);
   }, [sessionData?.booking]);
 
+  const handleRequestExtension = (idx) => {
+    if (sessionEnded) {
+      toast.error('Session has ended. Cannot extend.');
+      return;
+    }
+    console.log('DEBUG: setExtensionStep(requesting) called from handleRequestExtension');
+    setExtensionStep('requesting');
+    setExtensionProcessingMsg('Sending extension request...');
+    socketRef.current.emit('requestExtension', {
+      bookingId: sessionData.booking,
+      extensionOptionIndex: idx,
+      userId
+    }, (res) => {
+      if (res && res.success) {
+        setExtensionStep('waiting');
+        setExtensionProcessingMsg('Waiting for counselor response...');
+        setSelectedExtensionIdx(idx);
+      } else {
+        toast.error((res && res.message) || 'Failed to request extension');
+        setExtensionStep('idle');
+      }
+    });
+  };
+
+  const handleRespondToExtension = (accepted) => {
+    console.log('DEBUG: handleRespondToExtension called with', accepted, 'extensionRequestData:', extensionRequestData);
+    if (!extensionRequestData) return;
+    console.log('DEBUG: setExtensionStep(requesting) called from handleRespondToExtension');
+    setExtensionStep('requesting');
+    setExtensionProcessingMsg(accepted ? 'Accepting...' : 'Rejecting...');
+    socketRef.current.emit('respondToExtension', {
+      bookingId: extensionRequestData.bookingId,
+      accepted,
+      extensionOptionIndex: sessionData.slot.extensionOptions.findIndex(opt => opt.duration === extensionRequestData.extensionOption.duration && opt.cost === extensionRequestData.extensionOption.cost)
+    }, (res) => {
+      if (res && res.success) {
+        toast.success(accepted ? 'Extension accepted' : 'Extension rejected');
+        setExtensionRequestData(null);
+        setExtensionStep('idle');
+      } else {
+        toast.error((res && res.message) || 'Failed to respond');
+        setExtensionStep('idle');
+      }
+    });
+  };
+
+  const handleProcessExtensionPayment = () => {
+    if (selectedExtensionIdx === null) return;
+    console.log('DEBUG: setExtensionStep(requesting) called from handleProcessExtensionPayment');
+    setExtensionStep('requesting');
+    setExtensionProcessingMsg('Processing payment...');
+    const paymentId = 'dummy-payment-id';
+    socketRef.current.emit('processExtensionPayment', {
+      bookingId: sessionData.booking,
+      extensionOptionIndex: selectedExtensionIdx,
+      paymentId
+    }, (res) => {
+      if (res && res.success) {
+        toast.success('Extension payment successful! Session extended.');
+        setExtensionStep('done');
+        setTimeout(() => setExtensionStep('idle'), 1500);
+        setSelectedExtensionIdx(null);
+      } else {
+        toast.error((res && res.message) || 'Payment failed');
+        setExtensionStep('idle');
+      }
+    });
+  };
+
+  // Payment Dialog for extension
+  const handleExtensionPayment = async () => {
+    setPaymentProcessing(true);
+    setPaymentError(null);
+    try {
+      await processPayment(
+        sessionData.slot.extensionOptions[selectedExtensionIdx].cost,
+        sessionData.booking
+      );
+      handleProcessExtensionPayment();
+    } catch (err) {
+      setPaymentError(err.message || 'Payment failed. Please try again.');
+    } finally {
+      setPaymentProcessing(false);
+    }
+  };
+
+  console.log('Current extensionStep:', extensionStep, 'selectedExtensionIdx:', selectedExtensionIdx);
+
+  // Add logs for state resets
+  const setStepWithLog = (step) => {
+    console.log('DEBUG: setExtensionStep', step);
+    setExtensionStep(step);
+  };
+
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
@@ -194,6 +385,16 @@ const ChatSession = ({ sessionData }) => {
             color={timeLeft ? getTimerColor(timeLeft) : 'primary'}
             variant="outlined"
           />
+          {!sessionEnded && isUser && !extensionUsed && (
+            <Button
+              variant="outlined"
+              color="success"
+              onClick={() => setExtensionStep('select')}
+              disabled={extensionStep !== 'idle'}
+            >
+              Extend Session
+            </Button>
+          )}
           {!sessionEnded && isUser && (
             <Button
               variant="outlined"
@@ -206,6 +407,19 @@ const ChatSession = ({ sessionData }) => {
           <IconButton>
             <MoreVert />
           </IconButton>
+        </Box>
+        {/* Display Extension Options */}
+        <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+          <Typography variant="subtitle2" gutterBottom>Extension Options:</Typography>
+          {sessionData.slot && sessionData.slot.extensionOptions && sessionData.slot.extensionOptions.length > 0 ? (
+            sessionData.slot.extensionOptions.map((opt, idx) => (
+              <Typography key={idx} variant="body2">
+                {opt.duration} minutes - ₹{opt.cost}
+              </Typography>
+            ))
+          ) : (
+            <Typography variant="body2">No extension options available.</Typography>
+          )}
         </Box>
       </Paper>
 
@@ -440,8 +654,123 @@ const ChatSession = ({ sessionData }) => {
           </Button>
         </Box>
       </Modal>
+      {/* Extension Modal: Unified Flow */}
+      <Modal open={extensionStep !== 'idle'} onClose={() => {}}>
+        <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 24, p: 4, minWidth: 340, textAlign: 'center' }}>
+          {/* User: Select option */}
+          {extensionStep === 'idle' && null}
+          {extensionStep === 'requesting' && (
+            <Box>
+              <span className="loader"></span>
+              <Typography sx={{ mt: 2 }}>{extensionProcessingMsg || 'Processing...'}</Typography>
+            </Box>
+          )}
+          {extensionStep === 'waiting' && (
+            <Box>
+              <span className="loader"></span>
+              <Typography sx={{ mt: 2 }}>{extensionProcessingMsg || 'Waiting for counselor...'}</Typography>
+              <Button sx={{ mt: 2 }} onClick={() => setExtensionStep('idle')}>Cancel</Button>
+            </Box>
+          )}
+          {/* User: Select extension option */}
+          {extensionStep === 'select' && (
+            <Box>
+              <Typography variant="h6" gutterBottom>Extend Session</Typography>
+              <Typography variant="body2" gutterBottom>Select an extension option:</Typography>
+              {sessionData.slot && sessionData.slot.extensionOptions && sessionData.slot.extensionOptions.length > 0 ? (
+                sessionData.slot.extensionOptions.map((opt, idx) => (
+                  <Button key={idx} variant="outlined" sx={{ m: 1 }} onClick={() => handleRequestExtension(idx)}>
+                    {opt.duration} min - ₹{opt.cost}
+                  </Button>
+                ))
+              ) : (
+                <Typography>No extension options available.</Typography>
+              )}
+              <Button onClick={() => setExtensionStep('idle')} sx={{ mt: 2 }}>Cancel</Button>
+            </Box>
+          )}
+          {/* Counselor: Accept/Reject */}
+          {extensionStep === 'counselor' && (
+            <CounselorExtensionModal
+              open={extensionStep === 'counselor'}
+              extensionRequestData={extensionRequestData}
+              onAccept={() => handleRespondToExtension(true)}
+              onReject={() => handleRespondToExtension(false)}
+            />
+          )}
+          {/* User: Payment */}
+          {extensionStep === 'payment' && (
+            <Dialog open={true} onClose={() => {}}>
+              <DialogTitle>Complete Extension Payment</DialogTitle>
+              <DialogContent>
+                <Typography variant="subtitle1" gutterBottom>
+                  Extension Summary
+                </Typography>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', mb: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography>Extension Duration:</Typography>
+                    <Typography fontWeight="bold">
+                      {selectedExtensionIdx !== null && sessionData.slot.extensionOptions[selectedExtensionIdx]?.duration} min
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="h6">Amount:</Typography>
+                    <Typography variant="h6" color="primary" fontWeight="bold">
+                      ₹{selectedExtensionIdx !== null && sessionData.slot.extensionOptions[selectedExtensionIdx]?.cost}
+                    </Typography>
+                  </Box>
+                </Paper>
+                {paymentError && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {paymentError}
+                  </Alert>
+                )}
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Please complete the payment to extend your session.
+                </Typography>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setExtensionStep('idle')} disabled={paymentProcessing}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleExtensionPayment}
+                  disabled={paymentProcessing}
+                >
+                  {paymentProcessing ? 'Processing...' : 'Pay Now'}
+                </Button>
+              </DialogActions>
+            </Dialog>
+          )}
+          {/* Done */}
+          {extensionStep === 'done' && (
+            <Box>
+              <span className="loader"></span>
+              <Typography sx={{ mt: 2 }}>Session extended!</Typography>
+            </Box>
+          )}
+        </Box>
+      </Modal>
     </Box>
   );
 };
 
 export default ChatSession; 
+
+<style>
+{`
+.loader {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #1976d2;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+`}
+</style> 

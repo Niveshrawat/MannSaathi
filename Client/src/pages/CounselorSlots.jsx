@@ -10,7 +10,11 @@ const defaultForm = {
   startTime: '',
   endTime: '',
   sessionType: 'audio',
-  price: ''
+  price: '',
+  extensionOptions: [
+    { duration: 15, cost: 0 },
+    { duration: 30, cost: 0 }
+  ]
 };
 
 const CounselorSlots = () => {
@@ -21,6 +25,7 @@ const CounselorSlots = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState(null);
 
   const fetchSlots = async () => {
     setLoading(true);
@@ -44,7 +49,11 @@ const CounselorSlots = () => {
         startTime: slot.startTime,
         endTime: slot.endTime,
         sessionType: slot.sessionType,
-        price: slot.price || ''
+        price: slot.price || '',
+        extensionOptions: slot.extensionOptions || [
+          { duration: 15, cost: 0 },
+          { duration: 30, cost: 0 }
+        ]
       });
       setEditId(slot._id);
     } else {
@@ -65,13 +74,44 @@ const CounselorSlots = () => {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleExtensionOptionChange = (index, field, value) => {
+    setForm(prev => ({
+      ...prev,
+      extensionOptions: prev.extensionOptions.map((opt, i) =>
+        i === index ? { ...opt, [field]: value } : opt
+      )
+    }));
+  };
+
+  const handleRemoveExtensionOption = (index) => {
+    setForm(prev => ({
+      ...prev,
+      extensionOptions: prev.extensionOptions.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleAddExtensionOption = () => {
+    setForm(prev => ({
+      ...prev,
+      extensionOptions: [...prev.extensionOptions, { duration: '', cost: '' }]
+    }));
+  };
+
   const handleSave = async () => {
+    // Validation for extension options
+    const validOptions = form.extensionOptions.filter(opt => Number(opt.duration) > 0 && Number(opt.cost) > 0);
+    if (validOptions.length === 0) {
+      setFormError('Please add at least one extension option with valid duration and cost.');
+      return;
+    }
+    setFormError(null);
     setSaving(true);
     try {
+      const payload = { ...form, extensionOptions: validOptions };
       if (editId) {
-        await api.put(`/slots/${editId}`, form);
+        await api.put(`/slots/${editId}`, payload);
       } else {
-        await api.post('/slots', form);
+        await api.post('/slots', payload);
       }
       await fetchSlots();
       handleCloseDialog();
@@ -148,6 +188,28 @@ const CounselorSlots = () => {
             <MenuItem value="chat">Chat</MenuItem>
           </Select>
           <TextField label="Price" name="price" type="number" value={form.price} onChange={handleChange} fullWidth />
+          <Typography variant="subtitle1" sx={{ mt: 2 }}>Extension Options</Typography>
+          {formError && <Alert severity="error">{formError}</Alert>}
+          {form.extensionOptions.map((opt, idx) => (
+            <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+              <TextField
+                label="Duration (min)"
+                type="number"
+                value={opt.duration}
+                onChange={e => handleExtensionOptionChange(idx, 'duration', e.target.value)}
+                sx={{ width: 120 }}
+              />
+              <TextField
+                label="Cost (₹)"
+                type="number"
+                value={opt.cost}
+                onChange={e => handleExtensionOptionChange(idx, 'cost', e.target.value)}
+                sx={{ width: 120 }}
+              />
+              <Button onClick={() => handleRemoveExtensionOption(idx)} color="error" size="small" disabled={form.extensionOptions.length === 1}>Remove</Button>
+            </Box>
+          ))}
+          <Button onClick={handleAddExtensionOption} size="small" sx={{ width: 'fit-content', mb: 1 }}>Add Extension Option</Button>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>

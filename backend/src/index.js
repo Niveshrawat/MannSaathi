@@ -36,6 +36,9 @@ const io = new Server(server, {
 // Track active sessions
 const activeSessions = new Map();
 
+// Track which sessions have already been extended
+const sessionExtensionUsed = new Map();
+
 // Auto-end expired sessions
 setInterval(() => {
   const now = new Date();
@@ -66,6 +69,7 @@ io.on('connection', (socket) => {
       }
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const userId = decoded.id;
+      const userRole = decoded.role; // Make sure your JWT includes the role
       
       // Find booking and slot
       const booking = await Booking.findById(bookingId).populate('slot');
@@ -79,6 +83,21 @@ io.on('connection', (socket) => {
         console.log('Not authorized for this chat', { userId, bookingUser: booking.user, bookingCounselor: booking.counselor });
         return callback({ success: false, message: 'Not authorized for this chat' });
       }
+
+      // Join user/counselor rooms for real-time events
+      // Always join user room
+      const userRoom = `user_${booking.user.toString()}`;
+      socket.join(userRoom);
+      console.log('User joined room:', userRoom, 'socket.id:', socket.id);
+      // Always join counselor room
+      const counselorRoom = `counselor_${booking.counselor.toString()}`;
+      socket.join(counselorRoom);
+      console.log('Counselor joined room:', counselorRoom, 'socket.id:', socket.id);
+      // Always join the chat room for this booking
+      const room = `chat_${bookingId}`;
+      socket.join(room);
+      socket.data.userId = userId;
+      socket.data.bookingId = bookingId;
 
       // Debug logs for slot info
       console.log('booking.slot:', booking.slot);
@@ -97,7 +116,6 @@ io.on('connection', (socket) => {
         console.log('Chat session has not started yet', { now, start });
         return callback({ success: false, message: 'Chat session has not started yet' });
       }
-      
       if (now > end) {
         console.log('Chat session has ended', { now, end });
         return callback({ success: false, message: 'Chat session has ended' });
@@ -106,12 +124,6 @@ io.on('connection', (socket) => {
       // Calculate time remaining
       const timeRemaining = Math.floor((end - now) / (1000 * 60));
       console.log('minutesRemaining:', timeRemaining);
-
-      // Join room
-      const room = `chat_${bookingId}`;
-      socket.join(room);
-      socket.data.userId = userId;
-      socket.data.bookingId = bookingId;
 
       // Store session end time
       activeSessions.set(bookingId, end);
@@ -184,14 +196,232 @@ io.on('connection', (socket) => {
     const room = `chat_${bookingId}`;
     io.to(room).emit('sessionEnded', { message: 'Session was ended by the user.', endedByUser: true });
     console.log('Session ended and notified room:', room);
+    sessionExtensionUsed.delete(bookingId);
   });
 
   socket.on('testEvent', (data) => {
     console.log('Test event received:', data, 'from socket:', socket.id);
   });
 
+  socket.on('testCounselorEvent', (data) => {
+    console.log('testCounselorEvent received:', data);
+  });
+
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
+  });
+
+  // Session Extension Events
+  socket.on('requestExtension', async (payload, callback) => {
+    try {
+      const booking = await Booking.findById(payload.bookingId)
+        .populate('slot')
+        .populate('user')
+        .populate('counselor');
+      
+      if (!booking) {
+        console.log('DEBUG: Returning early - Booking not found');
+        return callback({ success: false, message: 'Booking not found' });
+      }
+
+      // Only user can request extension
+      let socketUserId = (typeof payload !== 'undefined' && payload.userId) ? payload.userId : socket.data.userId;
+      if (!socketUserId) {
+        // Try to get userId from JWT in handshake headers (for fallback)
+        try {
+          const token = socket.handshake.query.token || (socket.handshake.headers && socket.handshake.headers.authorization && socket.handshake.headers.authorization.replace('Bearer ', ''));
+          if (token) {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            socketUserId = decoded.id;
+          }
+        } catch (jwtErr) {
+          console.log('DEBUG: Could not decode JWT for fallback userId', jwtErr);
+        }
+      }
+      if (!socketUserId) {
+        console.log('DEBUG: Returning early - No userId available for permission check');
+        return callback({ success: false, message: 'User not authenticated' });
+      }
+      const bookingUserId = booking.user._id ? booking.user._id.toString() : booking.user.toString();
+      if (bookingUserId !== socketUserId.toString()) {
+        console.log('DEBUG: Returning early - Only the user can request an extension', { bookingUser: bookingUserId, socketUser: socketUserId.toString() });
+        return callback({ success: false, message: 'Only the user can request an extension' });
+      }
+
+      // Check if session is active or within grace period
+      const slot = booking.slot;
+      const now = new Date();
+      const slotEnd = new Date(`${slot.date}T${slot.endTime}`);
+      const gracePeriodMs = 60 * 1000; // 1 minute
+      if (booking.status !== 'accepted' && !(now > slotEnd && now - slotEnd <= gracePeriodMs)) {
+        console.log('DEBUG: Returning early - Session is not active', { bookingStatus: booking.status, now, slotEnd });
+        return callback({ success: false, message: 'Session is not active' });
+      }
+      if (now > slotEnd && now - slotEnd <= gracePeriodMs) {
+        console.log('Extension requested during grace period. now:', now, 'slotEnd:', slotEnd);
+      }
+
+      if (!slot.extensionOptions || !slot.extensionOptions[payload.extensionOptionIndex]) {
+        console.log('DEBUG: Returning early - Invalid extension option', { extensionOptions: slot.extensionOptions, extensionOptionIndex: payload.extensionOptionIndex });
+        return callback({ success: false, message: 'Invalid extension option' });
+      }
+
+      const extensionOptions = slot.extensionOptions.map(opt => (opt.toObject ? opt.toObject() : opt));
+      const extensionOption = extensionOptions[payload.extensionOptionIndex];
+      console.log('[DEBUG] After selecting extensionOption:', extensionOption, 'at index', payload.extensionOptionIndex);
+      if (!extensionOption) {
+        console.error('[ERROR] extensionOption is undefined or null at index', payload.extensionOptionIndex, 'options:', extensionOptions);
+        return callback({ success: false, message: 'Invalid extension option selected', error: 'extensionOption is undefined or null' });
+      }
+
+      if (sessionExtensionUsed.get(payload.bookingId)) {
+        return callback({ success: false, message: 'Session can only be extended once.' });
+      }
+
+      // Emit extension request to counselor
+      const counselorRoom = `counselor_${booking.counselor._id}`;
+      console.log('DEBUG: About to emit extensionRequested to', counselorRoom, { bookingId: payload.bookingId, extensionOption });
+      io.to(counselorRoom).emit('extensionRequested', {
+        bookingId: payload.bookingId,
+        user: booking.user,
+        extensionOption,
+        currentEndTime: slotEnd.toISOString(),
+        newEndTime: new Date(slotEnd.getTime() + extensionOption.duration * 60000).toISOString()
+      });
+      callback({ 
+        success: true, 
+        message: 'Extension request sent to counselor',
+        extensionOption
+      });
+    } catch (err) {
+      console.error('Error in requestExtension:', err);
+      callback({ success: false, message: 'Error processing extension request' });
+    }
+  });
+
+  socket.on('respondToExtension', async ({ bookingId, accepted, extensionOptionIndex }, callback) => {
+    console.log('[DEBUG] respondToExtension handler entered', { bookingId, accepted, extensionOptionIndex });
+    try {
+      const booking = await Booking.findById(bookingId)
+        .populate('slot')
+        .populate('user')
+        .populate('counselor');
+      console.log('[DEBUG] booking after fetch:', booking);
+
+      if (!booking) {
+        console.error('[ERROR] Booking not found for bookingId:', bookingId);
+        return callback({ success: false, message: 'Booking not found' });
+      }
+
+      const counselorId = booking.counselor._id ? booking.counselor._id.toString() : booking.counselor.toString();
+      if (counselorId !== socket.data.userId) {
+        console.error('[ERROR] Only the counselor can respond. counselorId:', counselorId, 'socket.data.userId:', socket.data.userId);
+        return callback({ success: false, message: 'Only the counselor can respond to extension requests' });
+      }
+
+      const slot = booking.slot;
+      const extensionOptions = slot.extensionOptions.map(opt => (opt.toObject ? opt.toObject() : opt));
+      console.log('[DEBUG] extensionOptions:', extensionOptions);
+      console.log('[DEBUG] extensionOptionIndex:', extensionOptionIndex);
+      const extensionOption = extensionOptions[extensionOptionIndex];
+      console.log('[DEBUG] extensionOption:', extensionOption);
+      if (!extensionOption) {
+        console.error('[ERROR] extensionOption is undefined or null at index', extensionOptionIndex, 'options:', extensionOptions);
+        return callback({ success: false, message: 'Invalid extension option selected', error: 'extensionOption is undefined or null' });
+      }
+
+      if (!accepted) {
+        const userRoom = `user_${booking.user._id}`;
+        console.log('[DEBUG] Extension rejected, emitting extensionRejected to', userRoom);
+        io.to(userRoom).emit('extensionRejected', {
+          bookingId,
+          message: 'Counselor rejected the extension request'
+        });
+        return callback({ success: true, message: 'Extension request rejected' });
+      }
+
+      const userRoom = `user_${booking.user._id}`;
+      let sockets = [];
+      try {
+        sockets = await io.in(userRoom).allSockets();
+      } catch (err) {
+        console.error('[ERROR] allSockets failed:', err);
+      }
+      console.log('[DEBUG] About to emit extensionAccepted', { userRoom, bookingId, extensionOption, sockets: Array.from(sockets) });
+      io.to(userRoom).emit('extensionAccepted', {
+        bookingId,
+        extensionOption,
+        paymentRequired: true
+      });
+      callback({ 
+        success: true, 
+        message: 'Extension request accepted, waiting for payment',
+        extensionOption
+      });
+    } catch (err) {
+      console.error('[ERROR in respondToExtension]:', err, err?.stack);
+      callback({ success: false, message: 'Error processing extension response', error: err?.message });
+    }
+  });
+
+  socket.on('processExtensionPayment', async ({ bookingId, extensionOptionIndex, paymentId }, callback) => {
+    try {
+      const booking = await Booking.findById(bookingId)
+        .populate('slot')
+        .populate('user')
+        .populate('counselor');
+
+      if (!booking) {
+        return callback({ success: false, message: 'Booking not found' });
+      }
+
+      // Only user can process payment
+      if (booking.user.toString() !== socket.data.userId) {
+        return callback({ success: false, message: 'Only the user can process payment' });
+      }
+
+      const slot = booking.slot;
+      const extensionOptions = slot.extensionOptions.map(opt => (opt.toObject ? opt.toObject() : opt));
+      const extensionOption = extensionOptions[extensionOptionIndex];
+
+      // TODO: Verify payment with payment gateway
+      // For now, we'll assume payment is successful
+      const paymentSuccessful = true;
+
+      if (!paymentSuccessful) {
+        return callback({ success: false, message: 'Payment failed' });
+      }
+
+      // Update slot end time
+      const currentEndTime = new Date(`${slot.date}T${slot.endTime}`);
+      const extensionEndTime = new Date(currentEndTime.getTime() + extensionOption.duration * 60000);
+      const newEndTime = extensionEndTime.toTimeString().slice(0, 5); // Format as HH:mm
+
+      await Slot.findByIdAndUpdate(slot._id, { endTime: newEndTime });
+
+      // Update session end time in activeSessions
+      activeSessions.set(bookingId, extensionEndTime);
+
+      // Notify both parties
+      const room = `chat_${bookingId}`;
+      io.to(room).emit('extensionCompleted', {
+        bookingId,
+        newEndTime: extensionEndTime.toISOString(),
+        timeRemaining: extensionOption.duration
+      });
+
+      sessionExtensionUsed.set(bookingId, true);
+
+      callback({ 
+        success: true, 
+        message: 'Extension payment processed and time updated',
+        newEndTime: extensionEndTime.toISOString(),
+        timeRemaining: extensionOption.duration
+      });
+    } catch (err) {
+      console.error('Error in processExtensionPayment:', err);
+      callback({ success: false, message: 'Error processing extension payment' });
+    }
   });
 });
 

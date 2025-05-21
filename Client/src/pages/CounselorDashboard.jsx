@@ -674,7 +674,7 @@ const CounselorDashboard = () => {
                                     onClick={() => navigate('/session?id=' + booking._id)}
                                   >
                                     View Details
-                                  </Button>
+                                    </Button>
                                 )}
                               </CardContent>
                             </Card>
