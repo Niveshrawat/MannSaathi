@@ -556,39 +556,39 @@ const UserDashboard = () => {
                       </ListItemAvatar>
                       <ListItemText
                         primary={booking.counselor?.name}
-                          secondary={
-                            <Box>
-                              <Typography variant="body2">
-                                {booking.slot?.date} at {booking.slot?.startTime}
+                        secondary={
+                          <span>
+                            <Typography component="span" variant="body2">
+                              {booking.slot?.date} at {booking.slot?.startTime}
+                            </Typography>
+                            {/* Status Chip */}
+                            <Chip
+                              label={getSessionStatus(booking).label}
+                              color={getSessionStatus(booking).color}
+                              size="small"
+                              sx={{ mt: 0.5, mr: 1 }}
+                            />
+                            {booking.feedback ? (
+                              <span style={{ display: 'block', marginTop: '4px' }}>
+                                <span style={{ display: 'flex', alignItems: 'center' }}>
+                                  {renderStars(booking.feedback.rating)}
+                                  <Typography component="span" variant="body2" sx={{ ml: 1 }}>
+                                    {booking.feedback.rating}/5
+                                  </Typography>
+                                </span>
+                                {booking.feedback.comment && (
+                                  <Typography component="span" variant="body2" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                    "{booking.feedback.comment}"
+                                  </Typography>
+                                )}
+                              </span>
+                            ) : (
+                              <Typography component="span" variant="body2" color="text.secondary">
+                                No feedback provided
                               </Typography>
-                              {/* Status Chip */}
-                              <Chip
-                                label={getSessionStatus(booking).label}
-                                color={getSessionStatus(booking).color}
-                                size="small"
-                                sx={{ mt: 0.5, mr: 1 }}
-                              />
-                              {booking.feedback ? (
-                                <Box sx={{ mt: 1 }}>
-                                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                    {renderStars(booking.feedback.rating)}
-                                    <Typography variant="body2" sx={{ ml: 1 }}>
-                                      {booking.feedback.rating}/5
-                                    </Typography>
-                                  </Box>
-                                  {booking.feedback.comment && (
-                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                      "{booking.feedback.comment}"
-                                    </Typography>
-                                  )}
-                                </Box>
-                              ) : (
-                                <Typography variant="body2" color="text.secondary">
-                                  No feedback provided
-                                </Typography>
-                              )}
-                            </Box>
-                          }
+                            )}
+                          </span>
+                        }
                       />
                       <Chip 
                           label={booking.slot?.sessionType === 'audio' ? 'Audio' : 'Chat'} 
@@ -799,30 +799,30 @@ const UserDashboard = () => {
                   <ListItemText
                     primary={booking.counselor?.name}
                     secondary={
-                      <Box>
-                        <Typography variant="body2">
+                      <span>
+                        <Typography component="span" variant="body2">
                           {booking.slot?.date} at {booking.slot?.startTime}
                         </Typography>
                         {booking.feedback ? (
-                          <Box sx={{ mt: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <span style={{ display: 'block', marginTop: '4px' }}>
+                            <span style={{ display: 'flex', alignItems: 'center' }}>
                               {renderStars(booking.feedback.rating)}
-                              <Typography variant="body2" sx={{ ml: 1 }}>
+                              <Typography component="span" variant="body2" sx={{ ml: 1 }}>
                                 {booking.feedback.rating}/5
                               </Typography>
-                            </Box>
+                            </span>
                             {booking.feedback.comment && (
-                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                              <Typography component="span" variant="body2" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                                 "{booking.feedback.comment}"
                               </Typography>
                             )}
-                          </Box>
+                          </span>
                         ) : (
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography component="span" variant="body2" color="text.secondary">
                             No feedback provided
                           </Typography>
                         )}
-                      </Box>
+                      </span>
                     }
                   />
                 </ListItem>

@@ -371,8 +371,6 @@ const ChatSession = ({ sessionData }) => {
     }
   };
 
-  console.log('Current extensionStep:', extensionStep, 'selectedExtensionIdx:', selectedExtensionIdx);
-
   // Add logs for state resets
   const setStepWithLog = (step) => {
     console.log('DEBUG: setExtensionStep', step);
