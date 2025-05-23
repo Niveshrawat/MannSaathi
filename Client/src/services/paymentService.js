@@ -1,11 +1,13 @@
 import api from './api';
 
-export const processPayment = async (amount, bookingId) => {
+export const processPayment = async (amount, bookingId, isExtension = false, extensionOptionIndex = null) => {
   try {
     const response = await api.post('/payments/process', {
       amount,
       bookingId,
-      currency: 'USD'
+      currency: 'USD',
+      isExtension,
+      extensionOptionIndex
     });
     return response.data;
   } catch (error) {

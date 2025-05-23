@@ -365,6 +365,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('processExtensionPayment', async ({ bookingId, extensionOptionIndex, paymentId }, callback) => {
+    console.log('processExtensionPayment handler called', { bookingId, extensionOptionIndex, paymentId, userId: socket.data.userId });
     try {
       const booking = await Booking.findById(bookingId)
         .populate('slot')
@@ -372,11 +373,14 @@ io.on('connection', (socket) => {
         .populate('counselor');
 
       if (!booking) {
+        console.log('processExtensionPayment: Booking not found');
         return callback({ success: false, message: 'Booking not found' });
       }
 
       // Only user can process payment
-      if (booking.user.toString() !== socket.data.userId) {
+      const bookingUserId = booking.user._id ? booking.user._id.toString() : booking.user.toString();
+      if (bookingUserId !== socket.data.userId) {
+        console.log('processExtensionPayment: Only the user can process payment', { bookingUser: bookingUserId, socketUser: socket.data.userId });
         return callback({ success: false, message: 'Only the user can process payment' });
       }
 
@@ -404,6 +408,11 @@ io.on('connection', (socket) => {
 
       // Notify both parties
       const room = `chat_${bookingId}`;
+      console.log('Emitting extensionCompleted to room:', room, {
+        bookingId,
+        newEndTime: extensionEndTime.toISOString(),
+        timeRemaining: extensionOption.duration
+      });
       io.to(room).emit('extensionCompleted', {
         bookingId,
         newEndTime: extensionEndTime.toISOString(),

@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import io from 'socket.io-client';
 import { toast } from 'react-hot-toast';
+import { processPayment } from '../../services/paymentService';
 
 const CounselorExtensionModal = ({ open, extensionRequestData, onAccept, onReject }) => {
   if (!open || !extensionRequestData) return null;
@@ -161,23 +162,53 @@ const ChatSession = ({ sessionData }) => {
       }
       setExtensionRequestData(null);
     });
-    socket.on('extensionCompleted', (data) => {
-      setExtensionUsed(true);
-      // Update timer and close all modals for both user and counselor
-      setExtensionStep('done');
-      setExtensionRequestData(null);
-      setSelectedExtensionIdx(null);
-      if (data.newEndTime) {
-        setSessionEndTime(new Date(data.newEndTime).getTime());
-        setTimeLeft(Math.max(0, Math.floor((new Date(data.newEndTime).getTime() - Date.now()) / 1000)));
-        console.log('DEBUG: extensionCompleted received, session time updated for', isUser ? 'user' : 'counselor', 'newEndTime:', data.newEndTime);
-        toast.success('Session extended!');
+    socket.on('extensionCompleted', async (data) => {
+      try {
+        console.log('extensionCompleted event received', data);
+        setExtensionUsed(true);
+        setExtensionStep('done');
+        setExtensionRequestData(null);
+        setSelectedExtensionIdx(null);
+        if (data.newEndTime) {
+          // Fetch latest slot data to ensure timer is correct
+          try {
+            const res = await fetch(`/api/slots/${sessionData.slot._id}`);
+            if (res.ok) {
+              const slot = await res.json();
+              const slotEnd = new Date(`${slot.date}T${slot.endTime}`);
+              setSessionEndTime(slotEnd.getTime());
+              setTimeLeft(Math.max(0, Math.floor((slotEnd.getTime() - Date.now()) / 1000)));
+              const localEndTime = slotEnd.toLocaleString();
+              console.log('Session extended! New end time (from DB):', localEndTime);
+              toast.success('Session extended! New end time: ' + localEndTime);
+            } else {
+              // fallback to event data
+              setSessionEndTime(new Date(data.newEndTime).getTime());
+              setTimeLeft(Math.max(0, Math.floor((new Date(data.newEndTime).getTime() - Date.now()) / 1000)));
+              const localEndTime = new Date(data.newEndTime).toLocaleString();
+              toast.success('Session extended! New end time: ' + localEndTime);
+            }
+          } catch (err) {
+            // fallback to event data
+            setSessionEndTime(new Date(data.newEndTime).getTime());
+            setTimeLeft(Math.max(0, Math.floor((new Date(data.newEndTime).getTime() - Date.now()) / 1000)));
+            const localEndTime = new Date(data.newEndTime).toLocaleString();
+            toast.success('Session extended! New end time: ' + localEndTime);
+            console.error('Error fetching slot after extension:', err);
+          }
+        }
+        setTimeout(() => setExtensionStep('idle'), 1500);
+      } catch (e) {
+        console.error('Error in extensionCompleted handler:', e);
       }
-      setTimeout(() => setExtensionStep('idle'), 1500);
     });
     // TEST: Listen for testCounselorEvent
     socket.on('testCounselorEvent', (data) => {
       console.log('testCounselorEvent received:', data);
+    });
+    // Log all socket events for debugging
+    socket.onAny((event, ...args) => {
+      console.log('Received socket event:', event, args);
     });
     return () => {
       socket.disconnect();
@@ -328,7 +359,9 @@ const ChatSession = ({ sessionData }) => {
     try {
       await processPayment(
         sessionData.slot.extensionOptions[selectedExtensionIdx].cost,
-        sessionData.booking
+        sessionData.booking,
+        true, // isExtension
+        selectedExtensionIdx // extensionOptionIndex
       );
       handleProcessExtensionPayment();
     } catch (err) {

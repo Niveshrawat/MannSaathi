@@ -894,7 +894,7 @@ const UserDashboard = () => {
                             </Typography>
                             {booking.feedback.comment && (
                               <Typography variant="body2" color="text.secondary" sx={{ ml: 1, fontStyle: 'italic' }}>
-                                “{booking.feedback.comment}”
+                                "{"{booking.feedback.comment}"}
                               </Typography>
                             )}
                           </Box>
