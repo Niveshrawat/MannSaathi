@@ -432,6 +432,12 @@ io.on('connection', (socket) => {
       callback({ success: false, message: 'Error processing extension payment' });
     }
   });
+
+  // Typing indicator relay
+  socket.on('typing', ({ bookingId, userId, userName }) => {
+    const room = `chat_${bookingId}`;
+    socket.to(room).emit('typing', { userId, userName });
+  });
 });
 
 server.listen(PORT, () => {

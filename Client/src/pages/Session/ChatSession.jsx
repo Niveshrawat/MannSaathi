@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -18,6 +18,8 @@ import {
   DialogContent,
   DialogActions,
   Alert,
+  Menu,
+  MenuItem,
 } from '@mui/material';
 import {
   Send,
@@ -72,6 +74,9 @@ const ChatSession = ({ sessionData }) => {
   const userId = userObj._id?.toString();
   const counselorId = sessionData.counselor?._id?.toString() || sessionData.counselor?.toString();
   const userIdFromSession = sessionData.user?._id?.toString() || sessionData.user?.toString();
+  const [typingUser, setTypingUser] = useState(null);
+  const typingTimeoutRef = useRef(null);
+  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
 
   const isCurrentUserCounselor = userId && counselorId && userId === counselorId;
   const chatName = isCurrentUserCounselor ? sessionData.user.name : sessionData.counselor.name;
@@ -83,7 +88,7 @@ const ChatSession = ({ sessionData }) => {
     if (!sessionData?.booking) return;
     // Only create the socket once
     if (!socketRef.current) {
-      socketRef.current = io('http://localhost:5000');
+      socketRef.current = io('https://mannsaathi.onrender.com');
     }
     const socket = socketRef.current;
     const joinUserRoom = () => {
@@ -172,7 +177,7 @@ const ChatSession = ({ sessionData }) => {
         if (data.newEndTime) {
           // Fetch latest slot data to ensure timer is correct
           try {
-            const res = await fetch(`/api/slots/${sessionData.slot._id}`);
+            const res = await fetch(`https://mannsaathi.onrender.com/api/slots/${sessionData.slot._id}`);
             if (res.ok) {
               const slot = await res.json();
               const slotEnd = new Date(`${slot.date}T${slot.endTime}`);
@@ -210,9 +215,17 @@ const ChatSession = ({ sessionData }) => {
     socket.onAny((event, ...args) => {
       console.log('Received socket event:', event, args);
     });
+    socket.on('typing', ({ userId: typingUserId, userName }) => {
+      if (typingUserId !== userId) {
+        setTypingUser(userName || 'User');
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => setTypingUser(null), 2000);
+      }
+    });
     return () => {
       socket.disconnect();
       socketRef.current = null;
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
   }, [sessionData?.booking, token]);
 
@@ -266,7 +279,7 @@ const ChatSession = ({ sessionData }) => {
     if (!sessionData?.booking) return;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/bookings/${sessionData.booking}`);
+        const res = await fetch(`https://mannsaathi.onrender.com/api/bookings/${sessionData.booking}`);
         if (!res.ok) return;
         const booking = await res.json();
         if (booking.status === 'completed') {
@@ -377,6 +390,17 @@ const ChatSession = ({ sessionData }) => {
     setExtensionStep(step);
   };
 
+  const handleInputChange = (e) => {
+    setMessage(e.target.value);
+    if (socketRef.current) {
+      socketRef.current.emit('typing', {
+        bookingId: sessionData.booking,
+        userId,
+        userName: userObj.name,
+      });
+    }
+  };
+
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
@@ -400,7 +424,7 @@ const ChatSession = ({ sessionData }) => {
             {timeLeft !== null && (
               <Typography variant="caption" color="text.secondary">
                 {sessionEnded ? 'Session ended' : `Time remaining: ${Math.ceil(timeLeft / 60)} minutes`}
-            </Typography>
+              </Typography>
             )}
           </Box>
         </Box>
@@ -416,28 +440,25 @@ const ChatSession = ({ sessionData }) => {
             color={timeLeft ? getTimerColor(timeLeft) : 'primary'}
             variant="outlined"
           />
-          {!sessionEnded && isUser && !extensionUsed && (
-            <Button
-              variant="outlined"
-              color="success"
-              onClick={() => setExtensionStep('select')}
-              disabled={extensionStep !== 'idle'}
-            >
-              Extend Session
-            </Button>
-          )}
-          {!sessionEnded && isUser && (
-            <Button
-              variant="outlined"
-              color="error"
-              onClick={() => setShowFinishModal(true)}
-            >
-              Finish Session
-            </Button>
-          )}
-          <IconButton>
+          <IconButton onClick={(e) => setMenuAnchorEl(e.currentTarget)}>
             <MoreVert />
           </IconButton>
+          <Menu
+            anchorEl={menuAnchorEl}
+            open={Boolean(menuAnchorEl)}
+            onClose={() => setMenuAnchorEl(null)}
+          >
+            {!sessionEnded && isUser && !extensionUsed && (
+              <MenuItem onClick={() => { setExtensionStep('select'); setMenuAnchorEl(null); }}>
+                Extend Session
+              </MenuItem>
+            )}
+            {!sessionEnded && isUser && (
+              <MenuItem onClick={() => { setShowFinishModal(true); setMenuAnchorEl(null); }}>
+                Finish Session
+              </MenuItem>
+            )}
+          </Menu>
         </Box>
         {/* Display Extension Options */}
         <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
@@ -459,46 +480,54 @@ const ChatSession = ({ sessionData }) => {
         sx={{
           flex: 1,
           overflow: 'auto',
-          bgcolor: 'grey.50',
-          p: 2
+          bgcolor: 'linear-gradient(135deg, #f7fafd 0%, #e3eafc 100%)',
+          p: 2,
+          minHeight: 0,
         }}
       >
         <List>
           {messages.map((msg, index) => {
             const isMe = msg.sender === userId;
             return (
-            <ListItem
+              <ListItem
                 key={index}
                 sx={{
                   display: 'flex',
                   flexDirection: isMe ? 'row-reverse' : 'row',
                   alignItems: 'flex-end',
-                  mb: 1
+                  mb: 1,
+                  border: 'none',
+                  background: 'none',
                 }}
-                >
+              >
                 <Box>
                   <Paper
                     sx={{
                       p: 1.5,
                       bgcolor: isMe ? 'primary.main' : 'grey.100',
                       color: isMe ? 'white' : 'text.primary',
-                      borderRadius: 2,
+                      borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                      boxShadow: 2,
                       maxWidth: 350,
                       minWidth: 60,
-                      textAlign: isMe ? 'right' : 'left'
+                      textAlign: 'left',
+                      fontSize: '1.08rem',
+                      fontWeight: 500,
+                      wordBreak: 'break-word',
+                      border: isMe ? '1.5px solid #1976d2' : '1.5px solid #e0e0e0',
                     }}
                   >
-                    <Typography>
+                    <Typography sx={{ fontSize: '1.08rem', fontWeight: 500, color: isMe ? 'white' : 'text.primary' }}>
                       {msg.message || msg.text || msg.content || '[No message]'}
                     </Typography>
                   </Paper>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: '#888', ml: isMe ? 0 : 1, mr: isMe ? 1 : 0, display: 'block', textAlign: isMe ? 'right' : 'left', mt: 0.5 }}>
                     {msg.timestamp
                       ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                       : ''}
                   </Typography>
-              </Box>
-            </ListItem>
+                </Box>
+              </ListItem>
             );
           })}
         </List>
@@ -506,13 +535,17 @@ const ChatSession = ({ sessionData }) => {
 
       {/* Message Input */}
       <Paper
-        elevation={2}
+        elevation={3}
         sx={{
           p: 2,
-          borderRadius: 0,
+          borderRadius: 3,
           display: 'flex',
           alignItems: 'center',
-          gap: 2
+          gap: 2,
+          boxShadow: '0 2px 12px rgba(33,150,243,0.08)',
+          background: 'white',
+          position: 'relative',
+          mt: 1,
         }}
       >
         <IconButton>
@@ -521,11 +554,18 @@ const ChatSession = ({ sessionData }) => {
         <IconButton>
           <AttachFile />
         </IconButton>
+        {typingUser && (
+          <Box sx={{ position: 'absolute', left: 60, top: -24, bgcolor: 'transparent' }}>
+            <Typography variant="caption" color="primary" sx={{ fontStyle: 'italic', fontWeight: 500, letterSpacing: 0.5 }}>
+              {typingUser} is typing <span className="typing-dot">...</span>
+            </Typography>
+          </Box>
+        )}
         <TextField
           fullWidth
           placeholder={sessionEnded ? "Session has ended" : "Type a message..."}
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={handleInputChange}
           onKeyPress={(e) => {
             if (e.key === 'Enter') {
               handleSendMessage();
@@ -534,12 +574,20 @@ const ChatSession = ({ sessionData }) => {
           variant="outlined"
           size="small"
           disabled={sessionEnded}
+          sx={{
+            bgcolor: '#f7fafd',
+            borderRadius: 2,
+            boxShadow: '0 1px 4px rgba(33,150,243,0.04)',
+            border: '1.5px solid #e3eafc',
+            fontSize: '1.08rem',
+          }}
         />
         <Button
           variant="contained"
           endIcon={<Send />}
           onClick={handleSendMessage}
           disabled={sessionEnded || !message.trim()}
+          sx={{ borderRadius: 2, minWidth: 48, minHeight: 48, fontWeight: 600 }}
         >
           Send
         </Button>
@@ -658,7 +706,7 @@ const ChatSession = ({ sessionData }) => {
             onClick={async () => {
               setFeedbackSubmitted(true);
               try {
-                const response = await fetch(`http://localhost:5000/api/bookings/${sessionData.booking}/feedback`, {
+                const response = await fetch(`https://mannsaathi.onrender.com/api/bookings/${sessionData.booking}/feedback`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -802,6 +850,20 @@ export default ChatSession;
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+.typing-dot {
+  display: inline-block;
+  width: 1.2em;
+  text-align: left;
+}
+.typing-dot:after {
+  content: '...';
+  animation: blink 1.2s infinite steps(3);
+}
+@keyframes blink {
+  0% { color: #1976d2; }
+  50% { color: #e3eafc; }
+  100% { color: #1976d2; }
 }
 `}
 </style> 
