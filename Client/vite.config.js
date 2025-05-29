@@ -9,7 +9,20 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    open: true
+    open: true,
+    proxy: {
+      '/api': {
+        target: 'https://mannsaathi.onrender.com',
+        changeOrigin: true,
+        secure: false
+      },
+      '/socket.io': {
+        target: 'https://mannsaathi.onrender.com',
+        changeOrigin: true,
+        secure: false,
+        ws: true
+      }
+    }
   },
   clearScreen: false
 })

@@ -8,7 +8,6 @@ const Booking = require('./models/Booking');
 const Slot = require('./models/Slot');
 const Session = require('./models/Session');
 const express = require('express');
-const cors = require('cors');
 
 // Load env vars
 dotenv.config();
@@ -27,16 +26,10 @@ console.log('EMAIL_USER:', process.env.EMAIL_USER);
 console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'SET' : 'NOT SET');
 
 const server = http.createServer(app);
-app.use(cors({
-  origin: process.env.CLIENT_URL,
-  credentials: true
-}));
-
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
-    methods: ['GET', 'POST'],
-    credentials: true
+    origin: '*', // Adjust as needed for security
+    methods: ['GET', 'POST']
   }
 });
 

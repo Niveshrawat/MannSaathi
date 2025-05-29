@@ -88,12 +88,7 @@ const ChatSession = ({ sessionData }) => {
     if (!sessionData?.booking) return;
     // Only create the socket once
     if (!socketRef.current) {
-      socketRef.current = io(import.meta.env.VITE_BACKEND_URL, {
-        withCredentials: true,
-        auth: {
-          token: localStorage.getItem('token')
-        }
-      });
+      socketRef.current = io('https://mannsaathi.onrender.com');
     }
     const socket = socketRef.current;
     const joinUserRoom = () => {
@@ -182,9 +177,9 @@ const ChatSession = ({ sessionData }) => {
         if (data.newEndTime) {
           // Fetch latest slot data to ensure timer is correct
           try {
-            const slotRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/slots/${sessionData.slot._id}`);
-            if (slotRes.ok) {
-              const slot = await slotRes.json();
+            const res = await fetch(`/api/slots/${sessionData.slot._id}`);
+            if (res.ok) {
+              const slot = await res.json();
               const slotEnd = new Date(`${slot.date}T${slot.endTime}`);
               setSessionEndTime(slotEnd.getTime());
               setTimeLeft(Math.max(0, Math.floor((slotEnd.getTime() - Date.now()) / 1000)));
@@ -284,16 +279,16 @@ const ChatSession = ({ sessionData }) => {
     if (!sessionData?.booking) return;
     const interval = setInterval(async () => {
       try {
-        const bookingRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/bookings/${sessionData.booking}`);
-        if (!bookingRes.ok) return;
-        const booking = await bookingRes.json();
+        const res = await fetch(`/api/bookings/${sessionData.booking}`);
+        if (!res.ok) return;
+        const booking = await res.json();
         if (booking.status === 'completed') {
           setSessionEnded(true);
           setTimeout(() => {
             window.location.href = '/dashboard';
           }, 2000);
           clearInterval(interval);
-        }
+    }
       } catch (err) {
         // ignore
       }
@@ -711,7 +706,7 @@ const ChatSession = ({ sessionData }) => {
             onClick={async () => {
               setFeedbackSubmitted(true);
               try {
-                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/bookings/${sessionData.booking}/feedback`, {
+                const response = await fetch(`https://mannsaathi.onrender.com/api/bookings/${sessionData.booking}/feedback`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
