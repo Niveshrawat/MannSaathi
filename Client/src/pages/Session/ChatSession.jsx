@@ -30,6 +30,7 @@ import {
 import io from 'socket.io-client';
 import { toast } from 'react-hot-toast';
 import { processPayment } from '../../services/paymentService';
+import api from '../../services/api';
 
 const CounselorExtensionModal = ({ open, extensionRequestData, onAccept, onReject }) => {
   if (!open || !extensionRequestData) return null;
@@ -315,18 +316,21 @@ const ChatSession = ({ sessionData }) => {
     if (!sessionData?.booking) return;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/bookings/${sessionData.booking}`);
-        if (!res.ok) return;
-        const booking = await res.json();
-        if (booking.status === 'completed') {
+        const response = await api.get(`/bookings/${sessionData.booking}`);
+        if (response.data.status === 'completed') {
           setSessionEnded(true);
           setTimeout(() => {
             window.location.href = '/dashboard';
           }, 2000);
           clearInterval(interval);
-    }
+        }
       } catch (err) {
-        // ignore
+        console.error('Error fetching booking status:', err);
+        if (err.response?.status === 401) {
+          toast.error('Session expired. Please login again.');
+          window.location.href = '/login';
+          clearInterval(interval);
+        }
       }
     }, 3000);
     return () => clearInterval(interval);
@@ -742,25 +746,15 @@ const ChatSession = ({ sessionData }) => {
             onClick={async () => {
               setFeedbackSubmitted(true);
               try {
-                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/bookings/${sessionData.booking}/feedback`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                  },
-                  body: JSON.stringify({ rating, comment })
+                const response = await api.post(`/bookings/${sessionData.booking}/feedback`, {
+                  rating,
+                  comment
                 });
-                const data = await response.json();
-                console.log('Feedback API response:', data);
-                if (!response.ok) {
-                  toast.error(data.message || 'Failed to submit feedback');
-                  setFeedbackSubmitted(false);
-                  return;
-                }
                 setShowFeedback(false);
                 toast.success('Thank you for your feedback!');
               } catch (err) {
-                toast.error('Network error submitting feedback');
+                console.error('Error submitting feedback:', err);
+                toast.error(err.response?.data?.message || 'Failed to submit feedback');
                 setFeedbackSubmitted(false);
               }
             }}
