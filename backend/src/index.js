@@ -109,25 +109,40 @@ io.on('connection', (socket) => {
       // Check if current time is within slot time
       const now = new Date();
       const slotDate = booking.slot.date;
-      const start = new Date(`${slotDate}T${booking.slot.startTime}`);
-      const end = new Date(`${slotDate}T${booking.slot.endTime}`);
-      console.log('start:', start, 'end:', end, 'now:', now);
+      
+      // Convert slot times to UTC for comparison
+      const start = new Date(`${slotDate}T${booking.slot.startTime}:00Z`);
+      const end = new Date(`${slotDate}T${booking.slot.endTime}:00Z`);
+      
+      // Add a 5-minute grace period before start time
+      const gracePeriodStart = new Date(start.getTime() - 5 * 60 * 1000);
+      
+      console.log('Time comparison:', {
+        now: now.toISOString(),
+        start: start.toISOString(),
+        end: end.toISOString(),
+        gracePeriodStart: gracePeriodStart.toISOString()
+      });
 
-      if (now < start) {
-        console.log('Chat session has not started yet', { now, start });
+      // Allow joining 5 minutes before start time
+      if (now < gracePeriodStart) {
+        console.log('Chat session has not started yet', { now, gracePeriodStart });
         return callback({ success: false, message: 'Chat session has not started yet' });
       }
-      if (now > end) {
-        console.log('Chat session has ended', { now, end });
+      
+      // Allow joining up to 5 minutes after end time
+      const gracePeriodEnd = new Date(end.getTime() + 5 * 60 * 1000);
+      if (now > gracePeriodEnd) {
+        console.log('Chat session has ended', { now, gracePeriodEnd });
         return callback({ success: false, message: 'Chat session has ended' });
       }
 
-      // Calculate time remaining
+      // Calculate time remaining (including grace period)
       const timeRemaining = Math.floor((end - now) / (1000 * 60));
       console.log('minutesRemaining:', timeRemaining);
 
-      // Store session end time
-      activeSessions.set(bookingId, end);
+      // Store session end time (including grace period)
+      activeSessions.set(bookingId, gracePeriodEnd);
 
       // Send chat history
       const session = await Session.findOne({ booking: bookingId });
@@ -143,7 +158,7 @@ io.on('connection', (socket) => {
         message: 'Joined chat room', 
         room,
         timeRemaining: timeRemaining,
-        sessionEndTimestamp: end.getTime()
+        sessionEndTimestamp: gracePeriodEnd.getTime()
       });
     } catch (err) {
       callback({ success: false, message: 'Auth or join error' });
@@ -155,25 +170,48 @@ io.on('connection', (socket) => {
     const room = `chat_${bookingId}`;
     if (!socket.data.bookingId || socket.data.bookingId !== bookingId) return;
 
-    // Check if session is still active
-    const endTime = activeSessions.get(bookingId);
-    if (!endTime || new Date() > endTime) {
-      socket.emit('error', { message: 'Session has ended' });
-      return;
+    try {
+      // Get booking and slot info
+      const booking = await Booking.findById(bookingId).populate('slot');
+      if (!booking) {
+        socket.emit('error', { message: 'Booking not found' });
+        return;
+      }
+
+      const now = new Date();
+      const slotDate = booking.slot.date;
+      const start = new Date(`${slotDate}T${booking.slot.startTime}:00Z`);
+      const end = new Date(`${slotDate}T${booking.slot.endTime}:00Z`);
+      
+      // Add grace periods
+      const gracePeriodStart = new Date(start.getTime() - 5 * 60 * 1000);
+      const gracePeriodEnd = new Date(end.getTime() + 5 * 60 * 1000);
+
+      // Check if within grace periods
+      if (now < gracePeriodStart || now > gracePeriodEnd) {
+        socket.emit('error', { message: 'Session is not active' });
+        return;
+      }
+
+      const msgObj = {
+        sender: socket.data.userId,
+        content: message,
+        timestamp: new Date()
+      };
+
+      // Save to DB
+      await Session.findOneAndUpdate(
+        { booking: bookingId },
+        { $push: { messages: msgObj } },
+        { upsert: true }
+      );
+
+      // Emit to room
+      io.to(room).emit('chatMessage', msgObj);
+    } catch (err) {
+      console.error('Error in chatMessage:', err);
+      socket.emit('error', { message: 'Error sending message' });
     }
-
-    const msgObj = {
-      sender: socket.data.userId,
-      content: message,
-      timestamp: new Date()
-    };
-
-    // Save to DB
-    await Session.findOneAndUpdate(
-      { booking: bookingId },
-      { $push: { messages: msgObj } }
-    );
-    io.to(room).emit('chatMessage', msgObj);
   });
 
   socket.on('finishSession', async ({ bookingId }) => {
