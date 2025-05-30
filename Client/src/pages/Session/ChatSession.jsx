@@ -86,11 +86,29 @@ const ChatSession = ({ sessionData }) => {
 
   useEffect(() => {
     if (!sessionData?.booking) return;
+    
+    // Check if token exists
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error('Please login to continue');
+      window.location.href = '/login';
+      return;
+    }
+
     // Only create the socket once
     if (!socketRef.current) {
-      socketRef.current = io(import.meta.env.VITE_BACKEND_URL);
+      socketRef.current = io(import.meta.env.VITE_BACKEND_URL, {
+        auth: {
+          token
+        },
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000
+      });
     }
+
     const socket = socketRef.current;
+    
     const joinUserRoom = () => {
       // Always join user, counselor, and chat rooms for real-time events
       socket.emit('joinRoom', { token, bookingId: sessionData.booking }, (res) => {
@@ -100,14 +118,30 @@ const ChatSession = ({ sessionData }) => {
           if (res.sessionEndTimestamp) setSessionEndTime(res.sessionEndTimestamp);
         } else {
           console.error('Failed to join room:', res.message);
+          if (res.message === 'Auth or join error') {
+            toast.error('Session expired. Please login again.');
+            window.location.href = '/login';
+          } else {
+            toast.error(res.message);
+          }
         }
       });
     };
+
+    // Initial join
     joinUserRoom();
+
+    // Handle reconnection
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      toast.error('Connection error. Trying to reconnect...');
+    });
+
     socket.on('reconnect', () => {
       console.log('Socket reconnected, rejoining user room');
       joinUserRoom();
     });
+
     socket.on('chatHistory', (history) => {
       setMessages(history);
     });
@@ -223,11 +257,13 @@ const ChatSession = ({ sessionData }) => {
       }
     });
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
-  }, [sessionData?.booking, token]);
+  }, [sessionData?.booking]);
 
   // Per-second countdown
   useEffect(() => {

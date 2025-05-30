@@ -25,12 +25,32 @@ api.interceptors.request.use(
 // Add a response interceptor to handle errors
 api.interceptors.response.use(
     (response) => response,
-    (error) => {
-        if (error.response?.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
+    async (error) => {
+        const originalRequest = error.config;
+        
+        // If the error is 401 and we haven't tried to refresh the token yet
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+            
+            try {
+                // Try to refresh the token
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('No token found');
+                }
+                
+                // Retry the original request with the same token
+                originalRequest.headers.Authorization = `Bearer ${token}`;
+                return api(originalRequest);
+            } catch (refreshError) {
+                // If refresh fails, redirect to login
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+                return Promise.reject(refreshError);
+            }
         }
+        
         return Promise.reject(error);
     }
 );
