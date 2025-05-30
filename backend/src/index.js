@@ -114,35 +114,32 @@ io.on('connection', (socket) => {
       const start = new Date(`${slotDate}T${booking.slot.startTime}:00Z`);
       const end = new Date(`${slotDate}T${booking.slot.endTime}:00Z`);
       
-      // Add a 5-minute grace period before start time
-      const gracePeriodStart = new Date(start.getTime() - 5 * 60 * 1000);
-      
       console.log('Time comparison:', {
         now: now.toISOString(),
         start: start.toISOString(),
         end: end.toISOString(),
-        gracePeriodStart: gracePeriodStart.toISOString()
       });
 
       // Allow joining 5 minutes before start time
-      if (now < gracePeriodStart) {
-        console.log('Chat session has not started yet', { now, gracePeriodStart });
+      if (now >= start && now <= end) {
+        // User is within the session time, proceed
+      } else if (now < start) {
+        console.log('Chat session has not started yet', { now, start });
         return callback({ success: false, message: 'Chat session has not started yet' });
       }
       
       // Allow joining up to 5 minutes after end time
-      const gracePeriodEnd = new Date(end.getTime() + 5 * 60 * 1000);
-      if (now > gracePeriodEnd) {
-        console.log('Chat session has ended', { now, gracePeriodEnd });
+      else if (now > end) {
+        console.log('Chat session has ended', { now, end });
         return callback({ success: false, message: 'Chat session has ended' });
       }
 
       // Calculate time remaining (including grace period)
-      const timeRemaining = Math.floor((end - now) / (1000 * 60));
+      const timeRemaining = Math.max(0, Math.floor((end - now) / (1000 * 60)));
       console.log('minutesRemaining:', timeRemaining);
 
       // Store session end time (including grace period)
-      activeSessions.set(bookingId, gracePeriodEnd);
+      activeSessions.set(bookingId, end);
 
       // Send chat history
       const session = await Session.findOne({ booking: bookingId });
@@ -158,7 +155,7 @@ io.on('connection', (socket) => {
         message: 'Joined chat room', 
         room,
         timeRemaining: timeRemaining,
-        sessionEndTimestamp: gracePeriodEnd.getTime()
+        sessionEndTimestamp: end.getTime()
       });
     } catch (err) {
       callback({ success: false, message: 'Auth or join error' });
