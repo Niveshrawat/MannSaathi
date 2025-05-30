@@ -443,8 +443,6 @@ io.on('connection', (socket) => {
       const extensionEndTime = new Date(currentEndTime.getTime() + extensionOption.duration * 60000);
       const newEndTime = extensionEndTime.toTimeString().slice(0, 5); // Format as HH:mm
 
-      await Slot.findByIdAndUpdate(slot._id, { endTime: newEndTime });
-
       // Update session end time in activeSessions
       activeSessions.set(bookingId, extensionEndTime);
 
