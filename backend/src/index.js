@@ -112,25 +112,31 @@ io.on('connection', (socket) => {
       
       // Convert slot times to UTC for comparison
       const start = new Date(`${slotDate}T${booking.slot.startTime}:00Z`);
-      const end = new Date(`${slotDate}T${booking.slot.endTime}:00Z`);
+      let end = new Date(`${slotDate}T${booking.slot.endTime}:00Z`); // Use let for potential update
       
-      console.log('Time comparison:', {
-        now: now.toISOString(),
-        start: start.toISOString(),
-        end: end.toISOString(),
-      });
-
-      // Allow joining 5 minutes before start time
-      if (now >= start && now <= end) {
-        // User is within the session time, proceed
+      // If session was extended, use the new end time for join check
+      const extendedEndTime = activeSessions.get(bookingId);
+      if (extendedEndTime && now <= extendedEndTime) {
+        // If an extended end time exists and current time is before or at it,
+        // treat the session as ongoing for joining purposes, but still respect original start time.
+         if (now < start) {
+          console.log('Chat session has not started yet (before original start)', { now, start });
+           return callback({ success: false, message: 'Chat session has not started yet' });
+         }
+         // Update the 'end' variable to the extended end time for subsequent calculations (like time remaining)
+         end = extendedEndTime;
+         console.log('Using extended end time for join check', { now: now.toISOString(), start: start.toISOString(), extendedEnd: end.toISOString() });
+         console.log('DEBUG: joinRoom check - Extended session active', { now: now.toISOString(), start: start.toISOString(), extendedEnd: end.toISOString(), nowBeforeStart: now < start, nowAfterExtendedEnd: now > end });
       } else if (now < start) {
         console.log('Chat session has not started yet', { now, start });
+        console.log('DEBUG: joinRoom check - Before start time', { now: now.toISOString(), start: start.toISOString() });
         return callback({ success: false, message: 'Chat session has not started yet' });
       }
       
       // Allow joining up to 5 minutes after end time
       else if (now > end) {
         console.log('Chat session has ended', { now, end });
+        console.log('DEBUG: joinRoom check - After end time', { now: now.toISOString(), end: end.toISOString() });
         return callback({ success: false, message: 'Chat session has ended' });
       }
 
