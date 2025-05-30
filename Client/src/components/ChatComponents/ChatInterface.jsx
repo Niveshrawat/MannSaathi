@@ -25,7 +25,7 @@ const ChatInterface = ({ chatMode, onSwitchToHuman, bookingId, token }) => {
 
   useEffect(() => {
     if (!bookingId || !token) return;
-    const newSocket = io('https://mannsaathi.onrender.com'); // Production backend URL
+    const newSocket = io(import.meta.env.VITE_BACKEND_URL);
     setSocket(newSocket);
     newSocket.emit('joinRoom', { token, bookingId }, (res) => {
       if (res.success) {

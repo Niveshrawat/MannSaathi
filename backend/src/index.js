@@ -28,7 +28,7 @@ console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'SET' : 'NOT SET');
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ['https://mann-saathi.vercel.app', 'http://localhost:3000'],
+    origin: process.env.CLIENT_URL,
     methods: ['GET', 'POST'],
     credentials: true
   }

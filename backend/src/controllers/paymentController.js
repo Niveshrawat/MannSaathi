@@ -35,11 +35,11 @@ exports.processPayment = async (req, res) => {
         });
       }
     } else {
-      if (amount !== booking.slot.price) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Payment amount does not match booking price' 
-        });
+    if (amount !== booking.slot.price) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Payment amount does not match booking price' 
+      });
       }
     }
 

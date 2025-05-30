@@ -16,7 +16,7 @@ require('dotenv').config();
 
 // CORS configuration
 app.use(cors({
-  origin: ['https://mann-saathi.vercel.app', 'http://localhost:3000'],
+  origin: process.env.CLIENT_URL,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true

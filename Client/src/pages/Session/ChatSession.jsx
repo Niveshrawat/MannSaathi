@@ -88,7 +88,7 @@ const ChatSession = ({ sessionData }) => {
     if (!sessionData?.booking) return;
     // Only create the socket once
     if (!socketRef.current) {
-      socketRef.current = io('https://mannsaathi.onrender.com');
+      socketRef.current = io(import.meta.env.VITE_BACKEND_URL);
     }
     const socket = socketRef.current;
     const joinUserRoom = () => {
@@ -170,14 +170,14 @@ const ChatSession = ({ sessionData }) => {
     socket.on('extensionCompleted', async (data) => {
       try {
         console.log('extensionCompleted event received', data);
-        setExtensionUsed(true);
-        setExtensionStep('done');
-        setExtensionRequestData(null);
-        setSelectedExtensionIdx(null);
-        if (data.newEndTime) {
+      setExtensionUsed(true);
+      setExtensionStep('done');
+      setExtensionRequestData(null);
+      setSelectedExtensionIdx(null);
+      if (data.newEndTime) {
           // Fetch latest slot data to ensure timer is correct
           try {
-            const res = await fetch(`/api/slots/${sessionData.slot._id}`);
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/slots/${sessionData.slot._id}`);
             if (res.ok) {
               const slot = await res.json();
               const slotEnd = new Date(`${slot.date}T${slot.endTime}`);
@@ -195,14 +195,14 @@ const ChatSession = ({ sessionData }) => {
             }
           } catch (err) {
             // fallback to event data
-            setSessionEndTime(new Date(data.newEndTime).getTime());
-            setTimeLeft(Math.max(0, Math.floor((new Date(data.newEndTime).getTime() - Date.now()) / 1000)));
+        setSessionEndTime(new Date(data.newEndTime).getTime());
+        setTimeLeft(Math.max(0, Math.floor((new Date(data.newEndTime).getTime() - Date.now()) / 1000)));
             const localEndTime = new Date(data.newEndTime).toLocaleString();
             toast.success('Session extended! New end time: ' + localEndTime);
             console.error('Error fetching slot after extension:', err);
           }
-        }
-        setTimeout(() => setExtensionStep('idle'), 1500);
+      }
+      setTimeout(() => setExtensionStep('idle'), 1500);
       } catch (e) {
         console.error('Error in extensionCompleted handler:', e);
       }
@@ -279,7 +279,7 @@ const ChatSession = ({ sessionData }) => {
     if (!sessionData?.booking) return;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/bookings/${sessionData.booking}`);
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/bookings/${sessionData.booking}`);
         if (!res.ok) return;
         const booking = await res.json();
         if (booking.status === 'completed') {
@@ -424,7 +424,7 @@ const ChatSession = ({ sessionData }) => {
             {timeLeft !== null && (
               <Typography variant="caption" color="text.secondary">
                 {sessionEnded ? 'Session ended' : `Time remaining: ${Math.ceil(timeLeft / 60)} minutes`}
-              </Typography>
+            </Typography>
             )}
           </Box>
         </Box>
@@ -489,7 +489,7 @@ const ChatSession = ({ sessionData }) => {
           {messages.map((msg, index) => {
             const isMe = msg.sender === userId;
             return (
-              <ListItem
+            <ListItem
                 key={index}
                 sx={{
                   display: 'flex',
@@ -499,7 +499,7 @@ const ChatSession = ({ sessionData }) => {
                   border: 'none',
                   background: 'none',
                 }}
-              >
+                >
                 <Box>
                   <Paper
                     sx={{
@@ -526,8 +526,8 @@ const ChatSession = ({ sessionData }) => {
                       ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                       : ''}
                   </Typography>
-                </Box>
-              </ListItem>
+              </Box>
+            </ListItem>
             );
           })}
         </List>
@@ -706,7 +706,7 @@ const ChatSession = ({ sessionData }) => {
             onClick={async () => {
               setFeedbackSubmitted(true);
               try {
-                const response = await fetch(`https://mannsaathi.onrender.com/api/bookings/${sessionData.booking}/feedback`, {
+                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/bookings/${sessionData.booking}/feedback`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
