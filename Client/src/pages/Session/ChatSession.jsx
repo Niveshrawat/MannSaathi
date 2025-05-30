@@ -316,7 +316,7 @@ const ChatSession = ({ sessionData }) => {
     if (!sessionData?.booking) return;
     const interval = setInterval(async () => {
       try {
-        const response = await api.get(`/bookings/${sessionData.booking}`);
+        const response = await api.get(`/bookings/session/byBooking/${sessionData.booking}`);
         if (response.data.status === 'completed') {
           setSessionEnded(true);
           setTimeout(() => {
@@ -325,7 +325,7 @@ const ChatSession = ({ sessionData }) => {
           clearInterval(interval);
         }
       } catch (err) {
-        console.error('Error fetching booking status:', err);
+        console.error('Error fetching session status:', err);
         if (err.response?.status === 401) {
           toast.error('Session expired. Please login again.');
           window.location.href = '/login';
